@@ -1,0 +1,19 @@
+{
+  "name": "vite-test",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^6.0.5"
+  },
+  "dependencies": {
+    "genesys-spark": "^4.110.0",
+    "purecloud-client-app-sdk": "^2.6.7",
+    "purecloud-platform-client-v2": "^212.1.0"
+  }
+}

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta name="robots" content="noindex" />
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title></title>
+    <meta name="Template" content="" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,100..900;1,100..900&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&family=Urbanist:ital,wght@0,100..900;1,100..900&display=swap"
+      rel="stylesheet"
+    />
+    <script type="module" src="/src/main.js"></script>
+  </head>
+  <body>
+    <br />
+
+    <div id="originalView" class="view active">
+      <gux-button id="refresh" class="btn">
+        <gux-icon id="refresh" icon-name="refresh" decorative></gux-icon>
+      </gux-button>
+
+      <gux-table
+        object-table
+        selectable-rows
+        resizable-columns
+        id="sortable-table"
+      >
+        <table slot="data">
+          <thead>
+            <tr data-row-id="head">
+              <th><gux-all-row-select></gux-all-row-select></th>
+              <!-- <th data-column-name="priority" data-cell-numeric aria-sort="ascending">Priority<gux-sort-control /></th> -->
+              <th data-column-name="originatingDirection">Direction</th>
+
+              <th data-column-name="start-date" aria-sort="ascending">
+                Start Date<gux-sort-control />
+              </th>
+              <th data-column-name="email">End date</th>
+              <th data-column-name="subject">Subject</th>
+              <th data-column-name="status">Status</th>
+              <!-- <th data-column-name="routing-state">Routing State</th> -->
+              <th data-column-name="assigned-to">Assigned To</th>
+              <th data-column-name="queue">Queue</th>
+              <!-- <th data-column-name="worktype">Worktype</th> -->
+              <th data-column-name="external-tag">External Tag</th>
+              <!-- <th data-column-name="name">Name</th> -->
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </gux-table>
+    </div>
+
+    <div id="separateView" class="view">
+      <gux-button id="backToOriginalView">Back to Original View</gux-button>
+
+      <gux-accordion single-open-section> </gux-accordion>
+      <!-- Separate view content here -->
+    </div>
+
+    <!--Loader and modal-->
+
+    <gux-radial-loading
+      id="loading"
+      class="loading"
+      screenreader-text="Loading..."
+    ></gux-radial-loading>
+
+    <gux-modal id="modal" size="small">
+      <div slot="title">Warning!</div>
+      <div slot="content">
+        You are about to terminate the selected Workitems are you sure you want
+        to do this?
+      </div>
+      <div slot="start-align-buttons">
+        <gux-button-slot accent="primary">
+          <button
+            onclick="terminateWorkItem(document.getElementById('dropdownWorkbin').value)"
+            type="button"
+          >
+            Accept
+          </button>
+        </gux-button-slot>
+      </div>
+      <div slot="end-align-buttons">
+        <gux-button-slot>
+          <button
+            autofocus
+            onclick="document.getElementById('modal').close()"
+            type="button"
+          >
+            Cancel
+          </button>
+        </gux-button-slot>
+      </div>
+    </gux-modal>
+
+    <script></script>
+  </body>
+  <style
+    onload="(function () {
+    function ascending( a, b ) {
+      if ( a.textContent < b.textContent ){
+        return -1;
+      }
+      if ( a.textContent > b.textContent ){
+        return 1;
+      }
+      return 0;
+    }
+    function shuffle( a, b ) {
+      return 0.5 - Math.random();
+    }
+    const table = document.querySelector('#sortable-table');
+    table.addEventListener('guxsortchanged',
+    (event) => {
+      const {columnName, sortDirection} = event.detail;
+      const columns = Array.from(table.querySelectorAll('thead tr th')).forEach((column) => column.removeAttribute('aria-sort'));
+      const column = table.querySelector(`thead tr th[data-column-name='` + columnName + `']`);
+      column.setAttribute('aria-sort', sortDirection);
+      const tableBody = table.querySelector('tbody');
+      switch (sortDirection) {
+        case 'ascending':
+          [...tableBody.children].sort(ascending).forEach(node=>tableBody.appendChild(node));
+          break;
+        case 'descending':
+          [...tableBody.children].sort(ascending).reverse().forEach(node=>tableBody.appendChild(node));
+          break;
+        default:
+          [...tableBody.children].sort(shuffle).forEach(node=>tableBody.appendChild(node));
+          break;
+      }
+    })
+  })()"
+  >
+    .view {
+      display: none;
+    }
+    .view.active {
+      display: block;
+    }
+    .not-used {
+      -custom-noop: noop;
+    }
+
+    .gux-sticky-cell {
+      position: sticky;
+      left: 0;
+      z-index: 1;
+    }
+
+    .gux-sticky-cell-2 {
+      position: sticky;
+      left: 89px;
+      z-index: 1;
+    }
+
+    .gux-sticky-cell-header-style {
+      background-color: var(
+        --gse-ui-dataTableItems-header-fixedBackgroundColor
+      );
+    }
+    .drop {
+      width: 25dvw;
+      max-width: 200px;
+      display: block;
+      margin: 8px;
+    }
+    .btn {
+      margin: 8px;
+      align-self: center;
+    }
+    .btn_right {
+      align-self: center;
+      margin-left: auto;
+      margin-top: 8px;
+      margin-bottom: 8px;
+      margin-right: 8px;
+    }
+    .tbody {
+      min-height: 200px;
+    }
+    .loading {
+      display: none;
+      margin-left: 47%;
+    }
+  </style>
+</html>
