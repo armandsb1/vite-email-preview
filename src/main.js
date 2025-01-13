@@ -43,7 +43,8 @@ document.getElementById("tbody").addEventListener("click", async function (e) {
   if (clickedConversationId) {
     let accordionDiv = document.createElement("div");
     accordionDiv.setAttribute("id", "messages-accordion");
-    document.getElementById("separateView").appendChild(accordionDiv);
+
+    document.getElementById("messages-content").appendChild(accordionDiv);
 
     const messages = await capi.getConversationsEmailMessages(
       clickedConversationId
@@ -62,9 +63,13 @@ document.getElementById("tbody").addEventListener("click", async function (e) {
       if (i === 0) {
         accordionElement.setAttribute("open", "");
       }
+     
       let accordionSlot = document.createElement("h2");
       accordionSlot.setAttribute("slot", "header");
+      
       accordionSlot.innerHTML = messages.entities[i].subject;
+      accordionSlot.setAttribute("style", "background-color: #F6F7F9");
+
       accordionElement.appendChild(accordionSlot);
       let accordionContent = document.createElement("p");
       accordionContent.setAttribute("slot", "content");
@@ -103,6 +108,8 @@ async function start() {
     console.log("%cLogging in to Genesys Cloud", "color: green");
     //   await client.loginImplicitGrant(gc_clientId, gc_redirectUrl, {})
     console.log("client", client);
+    console.log("gc_clientId", gc_clientId);
+    console.log("gc_redirectUrl", gc_redirectUrl);
     await client.loginImplicitGrant(
       gc_clientId,
       gc_redirectUrl,
@@ -324,12 +331,20 @@ function addRow(
   row.setAttribute("data-row-id", id);
   select.innerHTML = "<gux-row-select></gux-row-select>";
   T_originating_direction.innerHTML = originating_direction;
-  T_start_date.innerHTML = new Date(start_date).toLocaleString();
-  T_end_date.innerHTML = new Date(end_date).toLocaleString();
+  T_start_date.innerHTML = new Date(start_date).toLocaleString('en-GB');
+  T_end_date.innerHTML = new Date(end_date).toLocaleString('en-GB');
   T_subject.innerHTML = subject;
   T_status.innerHTML = status;
   // T_routing_state.innerHTML = routing_state;
   T_assigned_to.innerHTML = assigned_to;
+  if(status==="In Queue"){
+    T_assigned_to.innerHTML = queue
+  }
+  else if (status==="Parked"){
+    T_assigned_to.innerHTML = `<p style="display:inline-block;">${assigned_to} <img src="park.png" width="15" height="15"></p>`
+  }
+  // status==="Parked" ?T_assigned_to.innerHTML = `<p style="display:inline-block;">${assigned_to} <img src="park.png" width="15" height="15"></p>`:assigned_to
+  // T_assigned_to.innerHTML = '<p style="display:inline-block;">Some text <img src="park.png" width="15" height="15"></p>'
   T_queue.innerHTML = queue;
   T_external_tag.innerHTML = external_tag;
 
@@ -338,7 +353,7 @@ function addRow(
   row.appendChild(T_start_date);
   row.appendChild(T_end_date);
   row.appendChild(T_subject);
-  row.appendChild(T_status);
+  // row.appendChild(T_status);
   row.appendChild(T_assigned_to);
   row.appendChild(T_queue);
   row.appendChild(T_external_tag);

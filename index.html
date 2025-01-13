@@ -23,7 +23,7 @@
   </head>
   <body>
     <br />
-
+    <a href="https://api.mypurecloud.de/api/v2/downloads/873eaf8b422448c8">Google</a>
     <div id="originalView" class="view active">
       <gux-button id="refresh" class="btn">
         <gux-icon id="refresh" icon-name="refresh" decorative></gux-icon>
@@ -47,7 +47,7 @@
               </th>
               <th data-column-name="email">End date</th>
               <th data-column-name="subject">Subject</th>
-              <th data-column-name="status">Status</th>
+              <!-- <th data-column-name="status">Status</th> -->
               <!-- <th data-column-name="routing-state">Routing State</th> -->
               <th data-column-name="assigned-to">Assigned To</th>
               <th data-column-name="queue">Queue</th>
@@ -64,7 +64,34 @@
     <div id="separateView" class="view">
       <gux-button id="backToOriginalView">Back to Original View</gux-button>
 
-      <gux-accordion single-open-section> </gux-accordion>
+      <gux-tabs-advanced>
+        <gux-tab-advanced-list
+          slot="tab-list"
+          allow-sort="false"
+          show-new-tab-button="false"
+          tab-limit="4"
+        >
+          <gux-tab-advanced tab-id="5-1">
+            <gux-icon icon-name="user-directory" decorative="true"></gux-icon>
+            Email
+          </gux-tab-advanced>
+          <gux-tab-advanced tab-id="5-2">
+            <gux-icon icon-name="attachment" decorative="true"></gux-icon>
+            Attachment
+          </gux-tab-advanced>
+          
+        </gux-tab-advanced-list>
+        <gux-tab-advanced-panel tab-id="5-1">
+          <span id="messages-content"></span>
+        </gux-tab-advanced-panel>
+        <gux-tab-advanced-panel tab-id="5-2">
+          <span>Tab content 2</span>
+        </gux-tab-advanced-panel>
+        
+      </gux-tabs-advanced>
+
+
+      <!-- <gux-accordion single-open-section> </gux-accordion> -->
       <!-- Separate view content here -->
     </div>
 
