@@ -19,16 +19,28 @@
       href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&family=Urbanist:ital,wght@0,100..900;1,100..900&display=swap"
       rel="stylesheet"
     />
+    <link rel="stylesheet" href="/src/styles.css">
     <script type="module" src="/src/main.js"></script>
   </head>
   <body>
     <br />
     <a href="https://api.mypurecloud.de/api/v2/downloads/873eaf8b422448c8">Google</a>
     <div id="originalView" class="view active">
+      <div></div>
       <gux-button id="refresh" class="btn">
+        
         <gux-icon id="refresh" icon-name="refresh" decorative></gux-icon>
       </gux-button>
+      <form id="searchForm">
+        <!-- <form onchange="searchByEmail(event)" oninput="searchByEmail(event)" id="searchForm"> -->
 
+        <fieldset>
+          <gux-form-field-search>
+            <input slot="input" type="search" id="searchEmail" />
+            <label slot="label">Search by email</label>
+          </gux-form-field-search>
+        </fieldset>
+      </form>
       <gux-table
         object-table
         selectable-rows
@@ -38,14 +50,15 @@
         <table slot="data">
           <thead>
             <tr data-row-id="head">
-              <th><gux-all-row-select></gux-all-row-select></th>
+              <!-- <th><gux-all-row-select></gux-all-row-select></th> -->
               <!-- <th data-column-name="priority" data-cell-numeric aria-sort="ascending">Priority<gux-sort-control /></th> -->
               <th data-column-name="originatingDirection">Direction</th>
 
               <th data-column-name="start-date" aria-sort="ascending">
                 Start Date<gux-sort-control />
               </th>
-              <th data-column-name="email">End date</th>
+              <th data-column-name="endDate" class="end-date-column">End date</th>
+              <th data-column-name="from" >From</th>
               <th data-column-name="subject">Subject</th>
               <!-- <th data-column-name="status">Status</th> -->
               <!-- <th data-column-name="routing-state">Routing State</th> -->
@@ -132,10 +145,17 @@
       </div>
     </gux-modal>
 
-    <script></script>
+    <script>
+     
+      
+// function searchByEmail(event){
+//   event.preventDefault();
+//   console.log("event", event);
+// }
+    </script>
   </body>
   <style
-    onload="(function () {
+  onload="(function () {
     function ascending( a, b ) {
       if ( a.textContent < b.textContent ){
         return -1;

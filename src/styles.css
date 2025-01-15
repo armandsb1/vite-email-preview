@@ -1,0 +1,10 @@
+.end-date-column {
+    display: none;
+  }
+  
+  @media (min-width: 800px) {
+    .end-date-column {
+      display: table-cell;
+    }
+  }
+  

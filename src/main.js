@@ -27,7 +27,9 @@ gc_conversationId
 // setting test data
 gc_region = "mypurecloud.de";
 gc_clientId = "3c2df9bc-bac4-4bee-947a-71da0385e6ad";
-gc_redirectUrl = "http://127.0.0.1:5173/index.html";  
+gc_redirectUrl = "http://localhost:5173/index.html";
+// gc_redirectUrl = "https://magical-piroshki-be2276.netlify.app";
+
 
 // let platformClient = require("platformClient");
 // const client = platformClient.ApiClient.instance;
@@ -46,9 +48,7 @@ document.getElementById("tbody").addEventListener("click", async function (e) {
 
     document.getElementById("messages-content").appendChild(accordionDiv);
 
-    const messages = await capi.getConversationsEmailMessages(
-      clickedConversationId
-    );
+    const messages = await capi.getConversationsEmailMessages(clickedConversationId);
     for (let i = 0; i < messages.entities.length; i++) {
       let messageDetails = await capi.getConversationsEmailMessage(
         clickedConversationId,
@@ -63,10 +63,10 @@ document.getElementById("tbody").addEventListener("click", async function (e) {
       if (i === 0) {
         accordionElement.setAttribute("open", "");
       }
-     
+
       let accordionSlot = document.createElement("h2");
       accordionSlot.setAttribute("slot", "header");
-      
+
       accordionSlot.innerHTML = messages.entities[i].subject;
       accordionSlot.setAttribute("style", "background-color: #F6F7F9");
 
@@ -83,14 +83,23 @@ document.getElementById("tbody").addEventListener("click", async function (e) {
   }
 });
 
-document
-  .getElementById("backToOriginalView")
-  .addEventListener("click", function () {
-    let messagesAccordion = document.getElementById("messages-accordion");
-    messagesAccordion.remove();
-    document.getElementById("separateView").classList.remove("active");
-    document.getElementById("originalView").classList.add("active");
-  });
+document.getElementById("backToOriginalView").addEventListener("click", function () {
+  let messagesAccordion = document.getElementById("messages-accordion");
+  messagesAccordion.remove();
+  document.getElementById("separateView").classList.remove("active");
+  document.getElementById("originalView").classList.add("active");
+});
+
+var form = document.getElementById("searchForm");
+function handleForm(event) {
+  event.preventDefault();
+  console.log("search term :", document.getElementById("searchEmail").value);
+  let searchEmail = document.getElementById("searchEmail").value;
+  if (searchEmail) {
+    getEmailContactHistory(searchEmail);
+  }
+}
+form.addEventListener("submit", handleForm);
 
 loadSparkComponents();
 async function loadSparkComponents() {
@@ -110,17 +119,12 @@ async function start() {
     console.log("client", client);
     console.log("gc_clientId", gc_clientId);
     console.log("gc_redirectUrl", gc_redirectUrl);
-    await client.loginImplicitGrant(
-      gc_clientId,
-      gc_redirectUrl,
-      {}
-    );
+    await client.loginImplicitGrant(gc_clientId, gc_redirectUrl, {});
     console.log("region", gc_region);
     const myClientApp = new ClientApp({
       pcEnvironment: gc_region,
     });
     console.log("myClientApp", myClientApp);
-    
 
     //GET Current UserId
     let user = await uapi.getUsersMe({});
@@ -136,6 +140,8 @@ async function start() {
 } //End of start() function
 
 async function getExternalContactHistory() {
+  let table = document.getElementById("tbody");
+  table.innerHTML = '';
   try {
     let conversation = await capi.getConversation(gc_conversationId);
     console.log("conversation", conversation);
@@ -147,8 +153,7 @@ async function getExternalContactHistory() {
     let intervalStart = new Date();
     intervalStart = intervalStart.setDate(intervalStart.getDate() - 30);
     let body = {
-      interval:
-        new Date(intervalStart).toISOString() + "/" + intervalEnd.toISOString(),
+      interval: new Date(intervalStart).toISOString() + "/" + intervalEnd.toISOString(),
       segmentFilters: [
         {
           predicates: [
@@ -179,14 +184,9 @@ async function getExternalContactHistory() {
         // } else {
         //   item.subject = item.participants[1].sessions[0].segments[0].subject;
         // }
-        const queueElelement = item.participants.filter(
-          (p) => p.purpose === "acd"
-        );
-        const lastQueue =
-          queueElelement[queueElelement.length - 1].participantName;
-        const agentElement = item.participants.filter(
-          (p) => p.purpose === "agent"
-        );
+        const queueElelement = item.participants.filter((p) => p.purpose === "acd");
+        const lastQueue = queueElelement[queueElelement.length - 1]?.participantName||"";
+        const agentElement = item.participants.filter((p) => p.purpose === "agent");
         let lastAgent = "";
         if (agentElement.length > 0) {
           lastAgent = agentElement[agentElement.length - 1].participantName;
@@ -194,9 +194,9 @@ async function getExternalContactHistory() {
         let status = getEmailStatus(item);
         let owner = "";
         let subject = "";
+        let from = item.participants[0].sessions[0].addressFrom;
         if (item.conversationId === gc_conversationId) {
-          subject =
-            item.participants[0].sessions[0].segments[0].subject + " (Current)";
+          subject = item.participants[0].sessions[0].segments[0].subject + " (Current)";
         } else {
           subject = item.participants[0].sessions[0].segments[0].subject;
         }
@@ -213,6 +213,91 @@ async function getExternalContactHistory() {
           item.originatingDirection,
           item.conversationStart,
           item.conversationEnd,
+          from,
+          subject,
+          status,
+          owner,
+          lastQueue,
+          item.externalTag
+        );
+      }
+    }
+    document.getElementById("loading").style.display = "none";
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+async function getEmailContactHistory(addressFrom) {
+  let table = document.getElementById("tbody");
+  table.innerHTML = '';
+  try {
+
+    let intervalEnd = new Date();
+    let intervalStart = new Date();
+    intervalStart = intervalStart.setDate(intervalStart.getDate() - 30);
+    let body = {
+      interval: new Date(intervalStart).toISOString() + "/" + intervalEnd.toISOString(),
+      segmentFilters: [
+        {
+          predicates: [
+            {
+              type: "dimension",
+              dimension: "mediaType",
+              operator: "matches",
+              value: "email",
+            },
+            {
+              dimension: "addressFrom",
+              operator: "matches",
+              value: addressFrom,
+              type: "dimension",
+            },
+          ],
+          type: "and",
+        },
+      ],
+      order: "desc",
+    };
+    const history = await capi.postAnalyticsConversationsDetailsQuery(body);
+    console.log("history1", history);
+    if (history.totalHits > 0) {
+      for (const item of history.conversations) {
+        // if (item.originatingDirection === "inbound") {
+        //   item.subject = item.participants[0].sessions[0].segments[0].subject;
+        // } else {
+        //   item.subject = item.participants[1].sessions[0].segments[0].subject;
+        // }
+        const queueElelement = item.participants.filter((p) => p.purpose === "acd");
+        const lastQueue = queueElelement[queueElelement.length - 1].participantName;
+        const agentElement = item.participants.filter((p) => p.purpose === "agent");
+        let lastAgent = "";
+        if (agentElement.length > 0) {
+          lastAgent = agentElement[agentElement.length - 1].participantName;
+        }
+        let status = getEmailStatus(item);
+        let from = item.participants[0].sessions[0].addressFrom;
+        let owner = "";
+        let subject = "";
+        if (item.conversationId === gc_conversationId) {
+          subject = item.participants[0].sessions[0].segments[0].subject + " (Current)";
+        } else {
+          subject = item.participants[0].sessions[0].segments[0].subject;
+        }
+        if (item.hasOwnProperty("conversationEnd")) {
+          owner = "Ended";
+        } else if (status == "In Queue") {
+          owner = lastQueue;
+        } else {
+          owner = lastAgent;
+        }
+
+        addRow(
+          item.conversationId,
+          item.originatingDirection,
+          item.conversationStart,
+          item.conversationEnd,
+          from,
           subject,
           status,
           owner,
@@ -233,17 +318,13 @@ function getEmailStatus(conversation) {
   //   (p) => p.purpose === "acd"
   // );
   // if (!acdParticipant) return false;
-  const agentParticipant = conversation.participants.filter(
-    (p) => p.purpose === "agent"
-  );
+  const agentParticipant = conversation.participants.filter((p) => p.purpose === "agent");
   console.log("agentParticipant", agentParticipant);
   // const interactAcdSegment = acdParticipant.map((s) =>
   //   s.sessions[0].segments.filter((s) => s.segmentType === "interact")
   // );
   const interactAgentSegment = agentParticipant.map((s) =>
-    s.sessions.map((a) =>
-      a.segments.filter((s) => s.segmentType === "interact")
-    )
+    s.sessions.map((a) => a.segments.filter((s) => s.segmentType === "interact"))
   );
   const parkAgentSegment = agentParticipant.map((p) =>
     p.sessions.map((s) => s.segments.filter((s) => s.segmentType === "parked"))
@@ -309,6 +390,7 @@ function addRow(
   originating_direction,
   start_date,
   end_date,
+  from,
   subject,
   status,
   assigned_to,
@@ -321,37 +403,42 @@ function addRow(
   let T_originating_direction = document.createElement("td");
   let T_start_date = document.createElement("td");
   let T_end_date = document.createElement("td");
+  let T_from = document.createElement("td");
   let T_subject = document.createElement("td");
   let T_status = document.createElement("td");
   let T_assigned_to = document.createElement("td");
   let T_queue = document.createElement("td");
   let T_external_tag = document.createElement("td");
 
+  
+
   row.id = id;
   row.setAttribute("data-row-id", id);
   select.innerHTML = "<gux-row-select></gux-row-select>";
   T_originating_direction.innerHTML = originating_direction;
-  T_start_date.innerHTML = new Date(start_date).toLocaleString('en-GB');
-  T_end_date.innerHTML = new Date(end_date).toLocaleString('en-GB');
+  T_start_date.innerHTML = new Date(start_date).toLocaleString("en-GB");
+ 
+  end_date? T_end_date.innerHTML = new Date(end_date).toLocaleString("en-GB"):T_end_date.innerHTML = "N/A";
+  T_from.innerHTML = from;
   T_subject.innerHTML = subject;
   T_status.innerHTML = status;
   // T_routing_state.innerHTML = routing_state;
   T_assigned_to.innerHTML = assigned_to;
-  if(status==="In Queue"){
-    T_assigned_to.innerHTML = queue
-  }
-  else if (status==="Parked"){
-    T_assigned_to.innerHTML = `<p style="display:inline-block;">${assigned_to} <img src="park.png" width="15" height="15"></p>`
+  if (status === "In Queue") {
+    T_assigned_to.innerHTML = queue;
+  } else if (status === "Parked") {
+    T_assigned_to.innerHTML = `<p style="display:inline-block;">${assigned_to} <img src="park.png" width="15" height="15"></p>`;
   }
   // status==="Parked" ?T_assigned_to.innerHTML = `<p style="display:inline-block;">${assigned_to} <img src="park.png" width="15" height="15"></p>`:assigned_to
   // T_assigned_to.innerHTML = '<p style="display:inline-block;">Some text <img src="park.png" width="15" height="15"></p>'
   T_queue.innerHTML = queue;
   T_external_tag.innerHTML = external_tag;
 
-  row.appendChild(select);
+  // row.appendChild(select);
   row.appendChild(T_originating_direction);
   row.appendChild(T_start_date);
   row.appendChild(T_end_date);
+  row.appendChild(T_from);
   row.appendChild(T_subject);
   // row.appendChild(T_status);
   row.appendChild(T_assigned_to);
