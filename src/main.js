@@ -27,9 +27,8 @@ gc_conversationId
 // setting test data
 gc_region = "mypurecloud.de";
 gc_clientId = "3c2df9bc-bac4-4bee-947a-71da0385e6ad";
-gc_redirectUrl = "http://localhost:5173/index.html";
+// gc_redirectUrl = "http://localhost:5173/index.html";
 // gc_redirectUrl = "https://magical-piroshki-be2276.netlify.app";
-
 
 // let platformClient = require("platformClient");
 // const client = platformClient.ApiClient.instance;
@@ -39,49 +38,49 @@ const capi = new platformClient.ConversationsApi();
 
 // Configure Client App for UI notifications
 // const ClientApp = window.purecloud.apps.ClientApp;
-document.getElementById("tbody").addEventListener("click", async function (e) {
-  const clickedConversationId = e.target.parentNode.dataset?.rowId;
-  console.log("clickedConversationId", clickedConversationId);
-  if (clickedConversationId) {
-    let accordionDiv = document.createElement("div");
-    accordionDiv.setAttribute("id", "messages-accordion");
+// document.getElementById("tbody").addEventListener("click", async function (e) {
+//   const clickedConversationId = e.target.parentNode.dataset?.rowId;
+//   console.log("clickedConversationId", clickedConversationId);
+//   if (clickedConversationId) {
+//     let accordionDiv = document.createElement("div");
+//     accordionDiv.setAttribute("id", "messages-accordion");
 
-    document.getElementById("messages-content").appendChild(accordionDiv);
+//     document.getElementById("messages-content").appendChild(accordionDiv);
 
-    const messages = await capi.getConversationsEmailMessages(clickedConversationId);
-    for (let i = 0; i < messages.entities.length; i++) {
-      let messageDetails = await capi.getConversationsEmailMessage(
-        clickedConversationId,
-        messages.entities[i].id
-      );
-      let htmlBody = messageDetails?.htmlBody;
-      let textBody = messageDetails?.textBody;
-      let body = htmlBody ? htmlBody : textBody;
+//     const messages = await capi.getConversationsEmailMessages(clickedConversationId);
+//     for (let i = 0; i < messages.entities.length; i++) {
+//       let messageDetails = await capi.getConversationsEmailMessage(
+//         clickedConversationId,
+//         messages.entities[i].id
+//       );
+//       let htmlBody = messageDetails?.htmlBody;
+//       let textBody = messageDetails?.textBody;
+//       let body = htmlBody ? htmlBody : textBody;
 
-      let accordionElement = document.createElement("gux-accordion-section");
-      // opening first email content automatically
-      if (i === 0) {
-        accordionElement.setAttribute("open", "");
-      }
+//       let accordionElement = document.createElement("gux-accordion-section");
+//       // opening first email content automatically
+//       if (i === 0) {
+//         accordionElement.setAttribute("open", "");
+//       }
 
-      let accordionSlot = document.createElement("h2");
-      accordionSlot.setAttribute("slot", "header");
+//       let accordionSlot = document.createElement("h2");
+//       accordionSlot.setAttribute("slot", "header");
 
-      accordionSlot.innerHTML = messages.entities[i].subject;
-      accordionSlot.setAttribute("style", "background-color: #F6F7F9");
+//       accordionSlot.innerHTML = messages.entities[i].subject;
+//       accordionSlot.setAttribute("style", "background-color: #F6F7F9");
 
-      accordionElement.appendChild(accordionSlot);
-      let accordionContent = document.createElement("p");
-      accordionContent.setAttribute("slot", "content");
-      accordionContent.innerHTML = body;
-      accordionElement.appendChild(accordionContent);
-      accordionDiv.appendChild(accordionElement);
-    }
-    console.log("messages", messages);
-    document.getElementById("originalView").classList.remove("active");
-    document.getElementById("separateView").classList.add("active");
-  }
-});
+//       accordionElement.appendChild(accordionSlot);
+//       let accordionContent = document.createElement("p");
+//       accordionContent.setAttribute("slot", "content");
+//       accordionContent.innerHTML = body;
+//       accordionElement.appendChild(accordionContent);
+//       accordionDiv.appendChild(accordionElement);
+//     }
+//     console.log("messages", messages);
+//     document.getElementById("originalView").classList.remove("active");
+//     document.getElementById("separateView").classList.add("active");
+//   }
+// });
 
 document.getElementById("backToOriginalView").addEventListener("click", function () {
   let messagesAccordion = document.getElementById("messages-accordion");
@@ -410,31 +409,41 @@ function addRow(
   let T_queue = document.createElement("td");
   let T_external_tag = document.createElement("td");
 
+  T_end_date.classList.add("end-date-column");
+  T_from.classList.add("end-date-column");
+  T_queue.classList.add("end-date-column");
+  T_external_tag.classList.add("end-date-column");
+
   
 
   row.id = id;
   row.setAttribute("data-row-id", id);
   select.innerHTML = "<gux-row-select></gux-row-select>";
   T_originating_direction.innerHTML = originating_direction;
-  T_start_date.innerHTML = new Date(start_date).toLocaleString("en-GB");
+  T_start_date.innerHTML = `<gux-truncate>${new Date(start_date).toLocaleString("en-GB")}</gux-truncate>`;
  
-  end_date? T_end_date.innerHTML = new Date(end_date).toLocaleString("en-GB"):T_end_date.innerHTML = "N/A";
-  T_from.innerHTML = from;
-  T_subject.innerHTML = subject;
+  end_date? T_end_date.innerHTML = `<gux-truncate>${new Date(end_date).toLocaleString("en-GB")}</gux-truncate>`:T_end_date.innerHTML = "N/A";
+  T_from.innerHTML = `<gux-truncate>${from}</gux-truncate>`;
+  T_subject.innerHTML = `<gux-truncate>${subject}</gux-truncate>`;
   T_status.innerHTML = status;
   // T_routing_state.innerHTML = routing_state;
   T_assigned_to.innerHTML = assigned_to;
   if (status === "In Queue") {
-    T_assigned_to.innerHTML = queue;
+    T_assigned_to.innerHTML = `<gux-truncate>${queue}</gux-truncate>`;
   } else if (status === "Parked") {
-    T_assigned_to.innerHTML = `<p style="display:inline-block;">${assigned_to} <img src="park.png" width="15" height="15"></p>`;
+    T_assigned_to.innerHTML = `<gux-truncate><p style="display:inline-block;">${assigned_to} <img src="park.png" width="15" height="15"></p></gux-truncate>`;
   }
   // status==="Parked" ?T_assigned_to.innerHTML = `<p style="display:inline-block;">${assigned_to} <img src="park.png" width="15" height="15"></p>`:assigned_to
   // T_assigned_to.innerHTML = '<p style="display:inline-block;">Some text <img src="park.png" width="15" height="15"></p>'
-  T_queue.innerHTML = queue;
+  T_queue.innerHTML = `<gux-truncate>${queue}</gux-truncate>`;
   T_external_tag.innerHTML = external_tag;
 
-  // row.appendChild(select);
+  row.addEventListener("click", function() {
+    const conversationId = this.id;
+    rowClickHandler(conversationId)
+  });
+    
+// row.appendChild(select);
   row.appendChild(T_originating_direction);
   row.appendChild(T_start_date);
   row.appendChild(T_end_date);
@@ -447,3 +456,47 @@ function addRow(
 
   table.appendChild(row);
 }
+
+async function rowClickHandler (clickedConversationId) {
+  // const clickedConversationId = e.target.parentNode.dataset?.rowId;
+  // console.log("clickedConversationId", clickedConversationId);
+  if (clickedConversationId) {
+    let accordionDiv = document.createElement("div");
+    accordionDiv.setAttribute("id", "messages-accordion");
+
+    document.getElementById("messages-content").appendChild(accordionDiv);
+
+    const messages = await capi.getConversationsEmailMessages(clickedConversationId);
+    for (let i = 0; i < messages.entities.length; i++) {
+      let messageDetails = await capi.getConversationsEmailMessage(
+        clickedConversationId,
+        messages.entities[i].id
+      );
+      let htmlBody = messageDetails?.htmlBody;
+      let textBody = messageDetails?.textBody;
+      let body = htmlBody ? htmlBody : textBody;
+
+      let accordionElement = document.createElement("gux-accordion-section");
+      // opening first email content automatically
+      if (i === 0) {
+        accordionElement.setAttribute("open", "");
+      }
+
+      let accordionSlot = document.createElement("h2");
+      accordionSlot.setAttribute("slot", "header");
+
+      accordionSlot.innerHTML = messages.entities[i].subject;
+      accordionSlot.setAttribute("style", "background-color: #F6F7F9");
+
+      accordionElement.appendChild(accordionSlot);
+      let accordionContent = document.createElement("p");
+      accordionContent.setAttribute("slot", "content");
+      accordionContent.innerHTML = body;
+      accordionElement.appendChild(accordionContent);
+      accordionDiv.appendChild(accordionElement);
+    }
+    console.log("messages", messages);
+    document.getElementById("originalView").classList.remove("active");
+    document.getElementById("separateView").classList.add("active");
+  }
+};

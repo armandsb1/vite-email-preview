@@ -44,28 +44,28 @@
       <gux-table
         object-table
         selectable-rows
-        resizable-columns
+
         id="sortable-table"
       >
-        <table slot="data">
+        <table style="inline-size: 100%; table-layout: fixed" slot="data">
           <thead>
             <tr data-row-id="head">
               <!-- <th><gux-all-row-select></gux-all-row-select></th> -->
               <!-- <th data-column-name="priority" data-cell-numeric aria-sort="ascending">Priority<gux-sort-control /></th> -->
-              <th data-column-name="originatingDirection">Direction</th>
+              <th data-column-name="originatingDirection" style="width: 80px;">Direction</th>
 
               <th data-column-name="start-date" aria-sort="ascending">
                 Start Date<gux-sort-control />
               </th>
               <th data-column-name="endDate" class="end-date-column">End date</th>
-              <th data-column-name="from" >From</th>
+              <th data-column-name="from" class="end-date-column">From</th>
               <th data-column-name="subject">Subject</th>
               <!-- <th data-column-name="status">Status</th> -->
               <!-- <th data-column-name="routing-state">Routing State</th> -->
               <th data-column-name="assigned-to">Assigned To</th>
-              <th data-column-name="queue">Queue</th>
+              <th data-column-name="queue" class="end-date-column">Queue</th>
               <!-- <th data-column-name="worktype">Worktype</th> -->
-              <th data-column-name="external-tag">External Tag</th>
+              <th data-column-name="external-tag" class="end-date-column">External Tag</th>
               <!-- <th data-column-name="name">Name</th> -->
             </tr>
           </thead>
