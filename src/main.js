@@ -34,6 +34,8 @@ gc_clientId = "3c2df9bc-bac4-4bee-947a-71da0385e6ad";
 // const client = platformClient.ApiClient.instance;
 const uapi = new platformClient.UsersApi();
 const capi = new platformClient.ConversationsApi();
+let emailSettings = {};
+let user = {};
 //   const wapi = new platformClient.TaskManagementApi()
 
 // Configure Client App for UI notifications
@@ -82,14 +84,31 @@ const capi = new platformClient.ConversationsApi();
 //   }
 // });
 
-document.getElementById("backToOriginalView").addEventListener("click", function () {
-  let messagesAccordion = document.getElementById("messages-accordion");
-  messagesAccordion.remove();
-  document.getElementById("separateView").classList.remove("active");
-  document.getElementById("originalView").classList.add("active");
-});
+document
+  .getElementById("backToOriginalView")
+  .addEventListener("click", function () {
+    let messagesAccordion = document.getElementById("messages-accordion");
+    if (messagesAccordion){
+    messagesAccordion.remove()};
+    let threadAttachmentList = document.getElementById("threadAttachmentList");
+    if (threadAttachmentList){
+    threadAttachmentList.remove()};
+    if (document.getElementById("reconnectButton")){
+      document.getElementById("reconnectButton").remove();
+    }
+    if (document.getElementById("reassignButton")){
+      document.getElementById("reassignButton").remove();
+    }
+    // messagesAccordion = document.getElementById("threadAttachments");
+    document.getElementById("separateView").classList.remove("active");
+    document.getElementById("originalView").classList.add("active");
+  });
+
 
 var form = document.getElementById("searchForm");
+
+form.addEventListener("submit", handleForm);
+
 function handleForm(event) {
   event.preventDefault();
   console.log("search term :", document.getElementById("searchEmail").value);
@@ -98,7 +117,6 @@ function handleForm(event) {
     getEmailContactHistory(searchEmail);
   }
 }
-form.addEventListener("submit", handleForm);
 
 loadSparkComponents();
 async function loadSparkComponents() {
@@ -126,8 +144,9 @@ async function start() {
     console.log("myClientApp", myClientApp);
 
     //GET Current UserId
-    let user = await uapi.getUsersMe({});
-    console.log(user);
+    user = await uapi.getUsersMe({});
+    console.log("user",user);
+    emailSettings = await getEmailThreading(client.authData.accessToken);
     let externalContactId = await getExternalContactHistory();
     // console.log("history", externalContactId);
     //Enter in starting code.
@@ -140,7 +159,7 @@ async function start() {
 
 async function getExternalContactHistory() {
   let table = document.getElementById("tbody");
-  table.innerHTML = '';
+  table.innerHTML = "";
   try {
     let conversation = await capi.getConversation(gc_conversationId);
     console.log("conversation", conversation);
@@ -152,7 +171,8 @@ async function getExternalContactHistory() {
     let intervalStart = new Date();
     intervalStart = intervalStart.setDate(intervalStart.getDate() - 30);
     let body = {
-      interval: new Date(intervalStart).toISOString() + "/" + intervalEnd.toISOString(),
+      interval:
+        new Date(intervalStart).toISOString() + "/" + intervalEnd.toISOString(),
       segmentFilters: [
         {
           predicates: [
@@ -183,9 +203,14 @@ async function getExternalContactHistory() {
         // } else {
         //   item.subject = item.participants[1].sessions[0].segments[0].subject;
         // }
-        const queueElelement = item.participants.filter((p) => p.purpose === "acd");
-        const lastQueue = queueElelement[queueElelement.length - 1]?.participantName||"";
-        const agentElement = item.participants.filter((p) => p.purpose === "agent");
+        const queueElelement = item.participants.filter(
+          (p) => p.purpose === "acd"
+        );
+        const lastQueue =
+          queueElelement[queueElelement.length - 1]?.participantName || "";
+        const agentElement = item.participants.filter(
+          (p) => p.purpose === "agent"
+        );
         let lastAgent = "";
         if (agentElement.length > 0) {
           lastAgent = agentElement[agentElement.length - 1].participantName;
@@ -195,7 +220,8 @@ async function getExternalContactHistory() {
         let subject = "";
         let from = item.participants[0].sessions[0].addressFrom;
         if (item.conversationId === gc_conversationId) {
-          subject = item.participants[0].sessions[0].segments[0].subject + " (Current)";
+          subject =
+            item.participants[0].sessions[0].segments[0].subject + " (Current)";
         } else {
           subject = item.participants[0].sessions[0].segments[0].subject;
         }
@@ -206,7 +232,7 @@ async function getExternalContactHistory() {
         } else {
           owner = lastAgent;
         }
-
+        console.log("status1", status);
         addRow(
           item.conversationId,
           item.originatingDirection,
@@ -229,14 +255,14 @@ async function getExternalContactHistory() {
 
 async function getEmailContactHistory(addressFrom) {
   let table = document.getElementById("tbody");
-  table.innerHTML = '';
+  table.innerHTML = "";
   try {
-
     let intervalEnd = new Date();
     let intervalStart = new Date();
     intervalStart = intervalStart.setDate(intervalStart.getDate() - 30);
     let body = {
-      interval: new Date(intervalStart).toISOString() + "/" + intervalEnd.toISOString(),
+      interval:
+        new Date(intervalStart).toISOString() + "/" + intervalEnd.toISOString(),
       segmentFilters: [
         {
           predicates: [
@@ -267,9 +293,14 @@ async function getEmailContactHistory(addressFrom) {
         // } else {
         //   item.subject = item.participants[1].sessions[0].segments[0].subject;
         // }
-        const queueElelement = item.participants.filter((p) => p.purpose === "acd");
-        const lastQueue = queueElelement[queueElelement.length - 1].participantName;
-        const agentElement = item.participants.filter((p) => p.purpose === "agent");
+        const queueElelement = item.participants.filter(
+          (p) => p.purpose === "acd"
+        );
+        const lastQueue =
+          queueElelement[queueElelement.length - 1].participantName;
+        const agentElement = item.participants.filter(
+          (p) => p.purpose === "agent"
+        );
         let lastAgent = "";
         if (agentElement.length > 0) {
           lastAgent = agentElement[agentElement.length - 1].participantName;
@@ -279,7 +310,8 @@ async function getEmailContactHistory(addressFrom) {
         let owner = "";
         let subject = "";
         if (item.conversationId === gc_conversationId) {
-          subject = item.participants[0].sessions[0].segments[0].subject + " (Current)";
+          subject =
+            item.participants[0].sessions[0].segments[0].subject + " (Current)";
         } else {
           subject = item.participants[0].sessions[0].segments[0].subject;
         }
@@ -290,6 +322,8 @@ async function getEmailContactHistory(addressFrom) {
         } else {
           owner = lastAgent;
         }
+
+        console.log("status1", status);
 
         addRow(
           item.conversationId,
@@ -317,13 +351,17 @@ function getEmailStatus(conversation) {
   //   (p) => p.purpose === "acd"
   // );
   // if (!acdParticipant) return false;
-  const agentParticipant = conversation.participants.filter((p) => p.purpose === "agent");
+  const agentParticipant = conversation.participants.filter(
+    (p) => p.purpose === "agent"
+  );
   console.log("agentParticipant", agentParticipant);
   // const interactAcdSegment = acdParticipant.map((s) =>
   //   s.sessions[0].segments.filter((s) => s.segmentType === "interact")
   // );
   const interactAgentSegment = agentParticipant.map((s) =>
-    s.sessions.map((a) => a.segments.filter((s) => s.segmentType === "interact"))
+    s.sessions.map((a) =>
+      a.segments.filter((s) => s.segmentType === "interact")
+    )
   );
   const parkAgentSegment = agentParticipant.map((p) =>
     p.sessions.map((s) => s.segments.filter((s) => s.segmentType === "parked"))
@@ -413,16 +451,22 @@ function addRow(
   T_from.classList.add("end-date-column");
   T_queue.classList.add("end-date-column");
   T_external_tag.classList.add("end-date-column");
-
-  
+  T_subject.classList.add("subject-column");
+  T_status.classList.add("status-column");
 
   row.id = id;
   row.setAttribute("data-row-id", id);
   select.innerHTML = "<gux-row-select></gux-row-select>";
   T_originating_direction.innerHTML = originating_direction;
-  T_start_date.innerHTML = `<gux-truncate>${new Date(start_date).toLocaleString("en-GB")}</gux-truncate>`;
- 
-  end_date? T_end_date.innerHTML = `<gux-truncate>${new Date(end_date).toLocaleString("en-GB")}</gux-truncate>`:T_end_date.innerHTML = "N/A";
+  T_start_date.innerHTML = `<gux-truncate>${new Date(start_date).toLocaleString(
+    "en-GB"
+  )}</gux-truncate>`;
+
+  end_date
+    ? (T_end_date.innerHTML = `<gux-truncate>${new Date(
+        end_date
+      ).toLocaleString("en-GB")}</gux-truncate>`)
+    : (T_end_date.innerHTML = "N/A");
   T_from.innerHTML = `<gux-truncate>${from}</gux-truncate>`;
   T_subject.innerHTML = `<gux-truncate>${subject}</gux-truncate>`;
   T_status.innerHTML = status;
@@ -438,18 +482,23 @@ function addRow(
   T_queue.innerHTML = `<gux-truncate>${queue}</gux-truncate>`;
   T_external_tag.innerHTML = external_tag;
 
-  row.addEventListener("click", function() {
+  row.addEventListener("click", function () {
     const conversationId = this.id;
-    rowClickHandler(conversationId)
+    const conversationEnd = this.querySelector(".end-date-column").textContent;
+    const subject = this.querySelector(".subject-column").textContent||""
+    const status = this.querySelector(".status-column").textContent||""
+    console.log("conversationStatus", status)
+    console.log("conversationSubject", subject)
+    rowClickHandler(conversationId, conversationEnd, status, subject);
   });
-    
-// row.appendChild(select);
+
+  // row.appendChild(select);
   row.appendChild(T_originating_direction);
   row.appendChild(T_start_date);
   row.appendChild(T_end_date);
   row.appendChild(T_from);
   row.appendChild(T_subject);
-  // row.appendChild(T_status);
+  row.appendChild(T_status);
   row.appendChild(T_assigned_to);
   row.appendChild(T_queue);
   row.appendChild(T_external_tag);
@@ -457,16 +506,32 @@ function addRow(
   table.appendChild(row);
 }
 
-async function rowClickHandler (clickedConversationId) {
+async function rowClickHandler(clickedConversationId, conversationEnd, status, subject) {
+  const conversationEndObject = convertStringToDate(conversationEnd);
+  let cutOutDate = new Date();
+  console.log("threading", JSON.parse(emailSettings).timeoutInMinutes);
+  let conversationIsActive = true
+  
+  if (conversationEndObject) {
+   let difference = (cutOutDate.getMinutes()-JSON.parse(emailSettings).timeoutInMinutes)
+    cutOutDate.setMinutes(difference)
+    conversationEndObject<cutOutDate?conversationIsActive = false:conversationIsActive = true
+  }
+
+  console.log("conversationIsActive", conversationIsActive);
+
   // const clickedConversationId = e.target.parentNode.dataset?.rowId;
   // console.log("clickedConversationId", clickedConversationId);
+
   if (clickedConversationId) {
     let accordionDiv = document.createElement("div");
     accordionDiv.setAttribute("id", "messages-accordion");
 
     document.getElementById("messages-content").appendChild(accordionDiv);
 
-    const messages = await capi.getConversationsEmailMessages(clickedConversationId);
+    const messages = await capi.getConversationsEmailMessages(
+      clickedConversationId
+    );
     for (let i = 0; i < messages.entities.length; i++) {
       let messageDetails = await capi.getConversationsEmailMessage(
         clickedConversationId,
@@ -489,14 +554,304 @@ async function rowClickHandler (clickedConversationId) {
       accordionSlot.setAttribute("style", "background-color: #F6F7F9");
 
       accordionElement.appendChild(accordionSlot);
-      let accordionContent = document.createElement("p");
+      let accordionContent = document.createElement("div");
       accordionContent.setAttribute("slot", "content");
-      accordionContent.innerHTML = body;
+      let arccordionBody = document.createElement("p");
+      arccordionBody.innerHTML = body;
+      accordionContent.appendChild(arccordionBody);
+      if (messageDetails.attachments.length==0) {
+        document.getElementById("attachmentTab").style.display = "none";
+        console.log("no attachments");
+      }
+      else {document.getElementById("attachmentTab").style.display = "block";}
+      if (messageDetails.attachments.length > 0) {
+        let attachmentDiv = document.createElement("div");
+        attachmentDiv.setAttribute("class", "attachment-div");
+        let attachmentHeader = document.createElement("h4");
+        attachmentHeader.innerHTML = "Attachments";
+        attachmentDiv.appendChild(attachmentHeader);
+        var attachmentList = document.createElement("ul");
+        attachmentList.setAttribute("class", "attachment-list");
+        attachmentDiv.appendChild(attachmentList);
+        let anyOfAttachmentsShown = false
+        for (let j = 0; j < messageDetails.attachments.length; j++) {
+          var attachmentListItem = document.createElement("li");
+          attachmentListItem.setAttribute("class", "attachment-list-item");
+          let attachmentElement = document.createElement("div");
+          attachmentElement.setAttribute("class", "attachment-element");
+          attachmentListItem.appendChild(attachmentElement);
+          let attachmentName = document.createElement("span");
+          attachmentName.innerHTML = messageDetails.attachments[j].name;
+          attachmentElement.appendChild(attachmentName);
+          let attachment = messageDetails.attachments[j];
+          if (
+            attachment.contentType === "image/jpg" ||
+            attachment.contentType === "image/jpeg" ||
+            attachment.contentType === "image/png"
+          ) {
+            let previewButton = document.createElement("gux-button");
+            let icon = document.createElement("gux-icon");
+            icon.setAttribute("icon-name", "fa/eye-regular");
+            icon.setAttribute("screenreader-text", "Preview");
+            icon.setAttribute("size", "small");
+            previewButton.appendChild(icon);
+            let attachmentShown = false;
+
+            previewButton.addEventListener("click", function () {
+              
+              if (!attachmentShown) {
+                let img = document.createElement("img");
+                img.setAttribute("id", attachment.contentUri);
+                img.setAttribute("src", attachment.contentUri);
+                img.setAttribute("alt", attachment.name);
+                img.setAttribute("style", "max-width: 100%; height: auto;");
+                attachmentDiv.appendChild(img);
+                attachmentShown = true;
+                anyOfAttachmentsShown = true
+              }
+              else {
+                let img = document.getElementById(attachment.contentUri);
+                if (img){
+                img.remove()};
+                attachmentShown = false;
+                anyOfAttachmentsShown = false
+              }
+            });
+
+            attachmentElement.appendChild(previewButton);
+          }
+          //  else {
+          //   let link = document.createElement("a");
+          //   link.setAttribute("href", attachment.url);
+          //   link.setAttribute("download", attachment.name);
+          //   link.innerHTML = attachment.name;
+          //   attachmentDiv.appendChild(link);
+          // }
+          let downloadButton = document.createElement("gux-button");
+          let icon2 = document.createElement("gux-icon");
+          icon2.setAttribute("icon-name", "fa/download-regular");
+          icon2.setAttribute("screenreader-text", "Download");
+          icon2.setAttribute("size", "small");
+          downloadButton.appendChild(icon2);
+          downloadButton.addEventListener("click", function () {
+            let link = document.createElement("a");
+            link.setAttribute("href", attachment.contentUri);
+            link.setAttribute("download", attachment.name);
+            link.click();
+          });
+
+          attachmentElement.appendChild(downloadButton);
+          attachmentList.appendChild(attachmentListItem);
+        }
+        accordionContent.appendChild(attachmentDiv);
+      }
       accordionElement.appendChild(accordionContent);
       accordionDiv.appendChild(accordionElement);
     }
+
+  
+    const messagesWithAttachments = messages.entities.filter(m=>m.attachments.length>0);
+    console.log("messagesWithAttachments", messagesWithAttachments);
+    if (messagesWithAttachments.length > 0) {
+      let attachmentDiv = document.getElementById("threadAttachments");
+      attachmentDiv.setAttribute("class", "attachment-div");
+      var messagesList = document.createElement("ul");
+      messagesList.setAttribute("class", "attachment-list");
+      messagesList.setAttribute("id", "threadAttachmentList")
+      attachmentDiv.appendChild(messagesList);
+      for (let j = 0; j < messagesWithAttachments.length; j++) {
+        var messagesListItem = document.createElement("li");
+        messagesListItem.setAttribute("class", "attachment-list-item");
+        let messageElement = document.createElement("div");
+        messageElement.setAttribute("class", "attachment-element");
+        messagesListItem.appendChild(messageElement);
+        let messageName = document.createElement("span");
+        messageName.innerHTML = messagesWithAttachments[j].subject;
+        messageElement.appendChild(messageName);
+        let messageTime = document.createElement("span");
+        messageTime.innerHTML = new Date(messagesWithAttachments[j].time).toLocaleString("en-GB");
+        messageElement.appendChild(messageTime);
+        let messageAttachmentsElement = document.createElement("ul");
+        messageAttachmentsElement.setAttribute("class", "attachment-list");
+        messageElement.appendChild(messageAttachmentsElement);  
+        for (let k = 0; k < messagesWithAttachments[j].attachments.length; k++) {
+          let attachment = messagesWithAttachments[j].attachments[k];
+          var attachmentElement = document.createElement("li");
+          attachmentElement.setAttribute("class", "attachment-list-item");
+          messageAttachmentsElement.appendChild(attachmentElement);
+          let attachmentName = document.createElement("span");
+          attachmentName.innerHTML = attachment.name;
+          attachmentElement.appendChild(attachmentName);
+          if (
+            attachment.contentType === "image/jpg" ||
+            attachment.contentType === "image/jpeg" ||
+            attachment.contentType === "image/png"
+          ) {
+            let previewButton = document.createElement("gux-button");
+            let icon = document.createElement("gux-icon");
+            icon.setAttribute("icon-name", "fa/eye-regular");
+            icon.setAttribute("screenreader-text", "Preview");
+            icon.setAttribute("size", "small");
+            previewButton.appendChild(icon);
+            let attachmentShown = false;
+  
+            previewButton.addEventListener("click", function () {
+              if (!attachmentShown) {
+                let img = document.createElement("img");
+                img.setAttribute("id", attachment.contentUri);
+                img.setAttribute("src", attachment.contentUri);
+                img.setAttribute("alt", attachment.name);
+                img.setAttribute("style", "max-width: 100%; height: auto;");
+                attachmentDiv.appendChild(img);
+                attachmentShown = true;
+              }
+              else {
+                let img = document.getElementById(attachment.contentUri);
+                img.remove();
+                attachmentShown = false;
+              }
+            });
+  
+            attachmentElement.appendChild(previewButton);
+          }
+        
+          let downloadButton = document.createElement("gux-button");
+          let icon2 = document.createElement("gux-icon");
+          icon2.setAttribute("icon-name", "fa/download-regular");
+          icon2.setAttribute("screenreader-text", "Download");
+          icon2.setAttribute("size", "small");
+          downloadButton.appendChild(icon2);
+          downloadButton.addEventListener("click", function () {
+            let link = document.createElement("a");
+            link.setAttribute("href", attachment.contentUri);
+            link.setAttribute("download", attachment.name);}
+          );
+          attachmentElement.appendChild(downloadButton);
+          messagesList.appendChild(messagesListItem);
+        }
+     
+      }
+}
+
+
+          
     console.log("messages", messages);
+    if (conversationIsActive&&status == "Ended") {
+      const reconnectButton = document.createElement("gux-button");
+      reconnectButton.setAttribute("id", "reconnectButton");
+      reconnectButton.innerHTML = "Reconnect";
+      reconnectButton.addEventListener("click", function () {
+        capi.postConversationsEmailReconnect(clickedConversationId)
+      });
+      document.getElementById("messages-content").appendChild(reconnectButton);
+    }
+
+    console.log("status", status);
+    console.log("aaaaa", !subject.includes("(Current)"));
+    const conversation = await capi.getConversation(clickedConversationId);
+
+    if (status == "In Queue" && !subject.includes("(Current)")) {
+      const reassignButton = document.createElement("gux-button");
+      reassignButton.setAttribute("id", "reassignButton");
+      reassignButton.innerHTML = "Assign to Me";
+      reassignButton.addEventListener("click", function () {
+        console.log("conversation", conversation);
+        const activeQueue = conversation.participants.filter(c=>c.purpose==="acd"&&c.hasOwnProperty("conversationEnd")===false);
+        const participantId = activeQueue[0].id;
+        console.log("participantId", participantId);
+        transferUser(clickedConversationId, participantId, user.id);
+      });
+      document.getElementById("messages-content").appendChild(reassignButton);
+    
+    }
     document.getElementById("originalView").classList.remove("active");
     document.getElementById("separateView").classList.add("active");
   }
-};
+}
+
+
+function getEmailThreading(token) {
+  return new Promise((resolve, reject) => {
+    let xhr = new XMLHttpRequest();
+    xhr.open(
+      "GET",
+      `https://api.mypurecloud.de/api/v2/emails/settings/threading`
+    );
+    xhr.setRequestHeader("Authorization", "bearer " + token);
+    xhr.onload = function () {
+      resolve(xhr.response);
+    };
+    xhr.send();
+  });
+}
+
+function convertStringToDate(dateString) {
+  if (dateString == "N/A") return null;
+const [datePart, timePart] = dateString.split(", ");
+const [day, month, year] = datePart.split("/");
+const [hours, minutes, seconds] = timePart.split(":");
+
+const dateObject = new Date(year, month - 1, day, hours, minutes, seconds);
+return dateObject;
+}
+
+export async function transferUser(
+  conversationId,
+  participantId,
+  selectedUserId
+) {
+  try {
+    const body = {
+      userId: selectedUserId,
+      "transferType": "Unattended"
+    };
+    let data = await capi.postConversationsEmailParticipantReplace(
+      conversationId,
+      participantId,
+      body
+    );
+    console.log(
+      "postConversationsEmailParticipantReplace returned successfully.",
+      data
+    );
+    // getting active participantId of the transferred conversation
+    // const opts = {
+    //   communicationType: "email",
+    // };
+    // const a = await conversationsApi.getConversation(conversationId);
+    // console.log("a", JSON.stringify(a, null, 2));
+    // const b = a.participants.slice().reverse().find(
+    //   (p: any) => p.purpose == "agent" && p.userId == selectedUserId
+    // ).id;
+    // console.log("b", JSON.stringify(b, null, 2));
+    // const data2 = await conversationsApi.getConversations(opts);
+    // console.log(
+    //   `getConversations success! data: ${JSON.stringify(data2, null, 2)}`
+    // );
+    // const activeConversations = data2.entities.length;
+    // const lastInteractionParticipants =
+    //   data2.entities[activeConversations - 1].participants;
+    // console.log("lastInteractionParticipants", lastInteractionParticipants);
+    // const participantAgents = lastInteractionParticipants.filter(
+    //   (l: any) => l.purpose == "agent"
+    // );
+    // console.log("participantAgents", participantAgents);
+    // const currentParticipantId =
+    //   participantAgents[participantAgents.length - 1].id;
+
+    // console.log("new participantId", currentParticipantId);
+    // const body2 = {
+    //   state: "connected",
+    // };
+    // const data3 = await conversationsApi.patchConversationParticipant(
+    //   conversationId,
+    //   b,
+    //   body2
+    // );
+    // console.log("patchConversationsEmailParticipant returned successfully.");
+
+  } catch (error) {
+    // toast.error(error.message);
+    console.log("There was a failure transfering", error);
+  }
+}

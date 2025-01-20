@@ -24,13 +24,11 @@
   </head>
   <body>
     <br />
-    <a href="https://api.mypurecloud.de/api/v2/downloads/873eaf8b422448c8">Google</a>
     <div id="originalView" class="view active">
-      <div></div>
-      <gux-button id="refresh" class="btn">
+      <!-- <gux-button id="refresh" class="btn">
         
         <gux-icon id="refresh" icon-name="refresh" decorative></gux-icon>
-      </gux-button>
+      </gux-button> -->
       <form id="searchForm">
         <!-- <form onchange="searchByEmail(event)" oninput="searchByEmail(event)" id="searchForm"> -->
 
@@ -59,8 +57,8 @@
               </th>
               <th data-column-name="endDate" class="end-date-column">End date</th>
               <th data-column-name="from" class="end-date-column">From</th>
-              <th data-column-name="subject">Subject</th>
-              <!-- <th data-column-name="status">Status</th> -->
+              <th data-column-name="subject" class="subject-column">Subject</th>
+              <th data-column-name="status" class="status-column">Status</th>
               <!-- <th data-column-name="routing-state">Routing State</th> -->
               <th data-column-name="assigned-to">Assigned To</th>
               <th data-column-name="queue" class="end-date-column">Queue</th>
@@ -75,7 +73,7 @@
     </div>
 
     <div id="separateView" class="view">
-      <gux-button id="backToOriginalView">Back to Original View</gux-button>
+      <gux-button id="backToOriginalView">Back</gux-button>
 
       <gux-tabs-advanced>
         <gux-tab-advanced-list
@@ -84,21 +82,22 @@
           show-new-tab-button="false"
           tab-limit="4"
         >
-          <gux-tab-advanced tab-id="5-1">
+          <gux-tab-advanced tab-id="emailListTab">
             <gux-icon icon-name="user-directory" decorative="true"></gux-icon>
             Email
           </gux-tab-advanced>
-          <gux-tab-advanced tab-id="5-2">
+          <gux-tab-advanced tab-id="emailAttachmentTab" id="attachmentTab">
             <gux-icon icon-name="attachment" decorative="true"></gux-icon>
             Attachment
           </gux-tab-advanced>
           
         </gux-tab-advanced-list>
-        <gux-tab-advanced-panel tab-id="5-1">
+        <gux-tab-advanced-panel tab-id="emailListTab">
           <span id="messages-content"></span>
         </gux-tab-advanced-panel>
-        <gux-tab-advanced-panel tab-id="5-2">
-          <span>Tab content 2</span>
+        <gux-tab-advanced-panel tab-id="emailAttachmentTab">
+          <span>Attachments in message thread</span>
+          <div id="threadAttachments"></div>
         </gux-tab-advanced-panel>
         
       </gux-tabs-advanced>
