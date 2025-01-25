@@ -29,7 +29,7 @@
         
         <gux-icon id="refresh" icon-name="refresh" decorative></gux-icon>
       </gux-button> -->
-      <form id="searchForm">
+      <form id="searchForm" >
         <!-- <form onchange="searchByEmail(event)" oninput="searchByEmail(event)" id="searchForm"> -->
 
         <fieldset>
@@ -39,6 +39,25 @@
           </gux-form-field-search>
         </fieldset>
       </form>
+      <div class="date-select">
+        <gux-button id="move-period-back"
+        ><gux-icon
+          icon-name="chevron-left"
+          screenreader-text="This will be read by a screen reader"
+        ></gux-icon
+      ></gux-button>
+        <gux-form-field-text-like label-position="screenreader">
+          <input slot="input" type="text" name="lp-5" id="search-dates" readonly style="text-align:center" />
+          <label slot="label">Screenreader</label>
+        </gux-form-field-text-like>
+        <gux-button 
+        ><gux-icon
+          icon-name="chevron-right"
+          screenreader-text="This will be read by a screen reader"
+        ></gux-icon
+      ></gux-button>
+      </div>
+      
       <gux-table
         object-table
         selectable-rows

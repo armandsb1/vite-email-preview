@@ -36,6 +36,7 @@ const uapi = new platformClient.UsersApi();
 const capi = new platformClient.ConversationsApi();
 let emailSettings = {};
 let user = {};
+let interval = "";
 //   const wapi = new platformClient.TaskManagementApi()
 
 // Configure Client App for UI notifications
@@ -114,9 +115,19 @@ function handleForm(event) {
   console.log("search term :", document.getElementById("searchEmail").value);
   let searchEmail = document.getElementById("searchEmail").value;
   if (searchEmail) {
-    getEmailContactHistory(searchEmail);
+    getEmailContactHistory(searchEmail, interval);
   }
 }
+
+document.getElementById("move-period-back").addEventListener("click", function () {
+  let initialInterval = document.getElementById("search-dates");
+  let interval = moveIntervalBack(initialInterval.value);
+  console.log("interval", interval);
+
+  initialInterval.setAttribute("value",interval)
+
+  getExternalContactHistory(interval);
+});
 
 loadSparkComponents();
 async function loadSparkComponents() {
@@ -147,7 +158,13 @@ async function start() {
     user = await uapi.getUsersMe({});
     console.log("user",user);
     emailSettings = await getEmailThreading(client.authData.accessToken);
-    let externalContactId = await getExternalContactHistory();
+    let intervalEnd = new Date();
+    let intervalStart = new Date();
+    intervalStart = intervalStart.setDate(intervalStart.getDate() - 30);
+    interval=new Date(intervalStart).toISOString() + "/" + intervalEnd.toISOString()
+    let searchDateField = document.getElementById("search-dates");
+    searchDateField.setAttribute("value",new Date(intervalStart).toLocaleDateString() + "-" + intervalEnd.toLocaleDateString())
+    let externalContactId = await getExternalContactHistory(interval);
     // console.log("history", externalContactId);
     //Enter in starting code.
     //  getWorkbins()
@@ -157,7 +174,7 @@ async function start() {
   }
 } //End of start() function
 
-async function getExternalContactHistory() {
+async function getExternalContactHistory(interval) {
   let table = document.getElementById("tbody");
   table.innerHTML = "";
   try {
@@ -167,12 +184,9 @@ async function getExternalContactHistory() {
       .filter((p) => p.purpose === "external" || p.purpose === "customer")
       .map((p) => p.externalContactId)[0];
     console.log("externalContactId", externalContactId);
-    let intervalEnd = new Date();
-    let intervalStart = new Date();
-    intervalStart = intervalStart.setDate(intervalStart.getDate() - 30);
+   
     let body = {
-      interval:
-        new Date(intervalStart).toISOString() + "/" + intervalEnd.toISOString(),
+      interval:interval,
       segmentFilters: [
         {
           predicates: [
@@ -194,6 +208,7 @@ async function getExternalContactHistory() {
       ],
       order: "desc",
     };
+    
     const history = await capi.postAnalyticsConversationsDetailsQuery(body);
     console.log("history1", history);
     if (history.totalHits > 0) {
@@ -253,16 +268,14 @@ async function getExternalContactHistory() {
   }
 }
 
-async function getEmailContactHistory(addressFrom) {
+async function getEmailContactHistory(addressFrom, interval) {
   let table = document.getElementById("tbody");
   table.innerHTML = "";
   try {
-    let intervalEnd = new Date();
-    let intervalStart = new Date();
-    intervalStart = intervalStart.setDate(intervalStart.getDate() - 30);
+   
     let body = {
       interval:
-        new Date(intervalStart).toISOString() + "/" + intervalEnd.toISOString(),
+        interval,
       segmentFilters: [
         {
           predicates: [
@@ -854,4 +867,18 @@ export async function transferUser(
     // toast.error(error.message);
     console.log("There was a failure transfering", error);
   }
+}
+
+function moveIntervalBack(){
+  let interval = document.getElementById("search-dates").value;
+  let intervalArray = interval.split("-");
+  let intervalStart = new Date(intervalArray[0]);
+  let intervalEnd = new Date(intervalArray[1]);
+  intervalStart = intervalStart.setDate(intervalStart.getDate() - 30);
+  intervalEnd = intervalEnd.setDate(intervalEnd.getDate() - 30);
+  console.log("intervalStart", intervalStart);
+  console.log("intervalEnd", intervalEnd);
+  interval = new Date(intervalStart).toISOString() + "/" + new Date(intervalEnd).toISOString();
+  // sessionStorage.setItem("interval", interval);
+  return interval;
 }
