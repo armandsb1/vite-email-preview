@@ -768,8 +768,7 @@ async function rowClickHandler(clickedConversationId, conversationEnd, status, s
           if (
             attachment.contentType === "image/jpg" ||
             attachment.contentType === "image/jpeg" ||
-            attachment.contentType === "image/png" ||
-            attachment.contentType === "application/pdf"
+            attachment.contentType === "image/png" 
           ) {
             let previewButton = document.createElement("gux-button");
             let icon = document.createElement("gux-icon");
