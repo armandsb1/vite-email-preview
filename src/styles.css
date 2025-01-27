@@ -25,4 +25,20 @@
     align-items: center;
   }
   
+  .attachment-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
   
+  .attachment-table th, .attachment-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+  }
+  
+  .attachment-table .message-row {
+    border-bottom: 2px solid #000;
+  }
+  
+  .attachment-table .attachment-row td {
+    border-top: none;
+  }  
