@@ -703,6 +703,7 @@ async function rowClickHandler(clickedConversationId, conversationEnd, status, s
       let table = document.createElement("table");
       table.setAttribute("class", "attachment-table");
       table.setAttribute("id", "attachment-table");
+      table.setAttribute("slot", "data");
       guxtable.appendChild(table);
     
       let thead = document.createElement("thead");
@@ -826,7 +827,7 @@ async function rowClickHandler(clickedConversationId, conversationEnd, status, s
         }
       }
     
-      attachmentDiv.appendChild(table);
+      attachmentDiv.appendChild(guxtable);
     }
 
 

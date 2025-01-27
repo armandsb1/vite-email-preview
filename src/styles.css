@@ -25,7 +25,7 @@
     align-items: center;
   }
   
-  .attachment-table {
+  /* .attachment-table {
     width: 100%;
     border-collapse: collapse;
   }
@@ -41,4 +41,4 @@
   
   .attachment-table .attachment-row td {
     border-top: none;
-  }  
+  }   */
