@@ -29,17 +29,28 @@
         
         <gux-icon id="refresh" icon-name="refresh" decorative></gux-icon>
       </gux-button> -->
-      <form id="searchForm" >
+      <div class="top-row">
+
+      <form id="searchForm" class="search-form">
         <!-- <form onchange="searchByEmail(event)" oninput="searchByEmail(event)" id="searchForm"> -->
 
-        <fieldset>
-          <gux-form-field-search>
+        <!-- <fieldset> -->
+          <gux-form-field-search class="search-form" id="searchField">
             <input slot="input" type="search" id="searchEmail" />
             <label slot="label">Search by email</label>
           </gux-form-field-search>
-        </fieldset>
+        <!-- </fieldset> -->
       </form>
+
+    </div>
+   
       <div class="date-select">
+        <gux-button id="home-view"
+        ><gux-icon
+          icon-name="fa/home-regular"
+          screenreader-text="This will be read by a screen reader"
+        ></gux-icon
+      ></gux-button>
         <gux-button id="move-period-back"
         ><gux-icon
           icon-name="chevron-left"
@@ -64,25 +75,26 @@
 
         id="sortable-table"
       >
-        <table style="inline-size: 100%; table-layout: fixed" slot="data">
+        <table style="inline-size: 100%; table-layout: auto" slot="data">
           <thead>
             <tr data-row-id="head">
               <!-- <th><gux-all-row-select></gux-all-row-select></th> -->
               <!-- <th data-column-name="priority" data-cell-numeric aria-sort="ascending">Priority<gux-sort-control /></th> -->
-              <th data-column-name="originatingDirection" style="width: 80px;">Direction</th>
+              <th data-column-name="originatingDirection" class="size-x" style="width: 80px;">Direction</th>
 
-              <th data-column-name="start-date" aria-sort="ascending">
+              <th data-column-name="start-date" class="size-x" aria-sort="ascending">
                 Start Date<gux-sort-control />
               </th>
-              <th data-column-name="endDate" class="end-date-column">End date</th>
-              <th data-column-name="from" class="end-date-column">From</th>
-              <th data-column-name="subject" class="subject-column">Subject</th>
-              <th data-column-name="status" class="status-column">Status</th>
+              <th data-column-name="endDate" class="size-m">End date</th>
+              <th data-column-name="from" class="size-l">From</th>
+              <th data-column-name="subject"  class="size-x">Subject</th>
+              <th data-column-name="status" class="size-x">Status</th>
               <!-- <th data-column-name="routing-state">Routing State</th> -->
-              <th data-column-name="assigned-to">Assigned To</th>
-              <th data-column-name="queue" class="end-date-column">Queue</th>
+              <th data-column-name="assigned-to" class="size-x">Assigned To</th>
+              <th data-column-name="queue" class="size-m">Queue</th>
+              <th data-column-name="wrapup" class="size-l">WrapUp</th>
               <!-- <th data-column-name="worktype">Worktype</th> -->
-              <th data-column-name="external-tag" class="end-date-column">External Tag</th>
+              <th data-column-name="external-tag" class="size-l">External Tag</th>
               <!-- <th data-column-name="name">Name</th> -->
             </tr>
           </thead>
@@ -90,7 +102,7 @@
         </table>
       </gux-table>
     </div>
-
+  </div>
     <div id="separateView" class="view">
       <gux-button id="backToOriginalView">Back</gux-button>
 

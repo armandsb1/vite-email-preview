@@ -34,6 +34,7 @@ gc_clientId = "3c2df9bc-bac4-4bee-947a-71da0385e6ad";
 // const client = platformClient.ApiClient.instance;
 const uapi = new platformClient.UsersApi();
 const capi = new platformClient.ConversationsApi();
+const rapi = new platformClient.RoutingApi();
 let emailSettings = {};
 let user = {};
 let interval = "";
@@ -159,6 +160,14 @@ document.getElementById("move-period-forward").addEventListener("click", functio
   }
 });
 
+document.getElementById("home-view").addEventListener("click", function () {
+          const formField = document.getElementById('searchField');
+          const input = document.getElementById('searchEmail');
+          input.value = '';
+          formField.guxForceUpdate();
+          start();
+})          
+
 loadSparkComponents();
 async function loadSparkComponents() {
   await registerSparkComponents();
@@ -277,7 +286,10 @@ async function getExternalContactHistory(interval) {
         } else {
           owner = lastAgent;
         }
-        console.log("status1", status);
+
+        const wrapUp = await getLatestWrapUpCode(item);
+        console.log("wrapUp", wrapUp);
+        // console.log("status1", status);
         addRow(
           item.conversationId,
           item.originatingDirection,
@@ -288,7 +300,8 @@ async function getExternalContactHistory(interval) {
           status,
           owner,
           lastQueue,
-          item.externalTag
+          wrapUp,
+          item.externalTag?item.externalTag:""
         );
       }
     }
@@ -368,6 +381,9 @@ async function getEmailContactHistory(addressFrom, interval) {
 
         console.log("status1", status);
 
+        const wrapUp = await getLatestWrapUpCode(item);
+        console.log("wrapUp", wrapUp);
+
         addRow(
           item.conversationId,
           item.originatingDirection,
@@ -378,6 +394,7 @@ async function getEmailContactHistory(addressFrom, interval) {
           status,
           owner,
           lastQueue,
+          wrapUp,
           item.externalTag
         );
       }
@@ -397,7 +414,7 @@ function getEmailStatus(conversation) {
   const agentParticipant = conversation.participants.filter(
     (p) => p.purpose === "agent"
   );
-  console.log("agentParticipant", agentParticipant);
+  // console.log("agentParticipant", agentParticipant);
   // const interactAcdSegment = acdParticipant.map((s) =>
   //   s.sessions[0].segments.filter((s) => s.segmentType === "interact")
   // );
@@ -475,6 +492,7 @@ function addRow(
   status,
   assigned_to,
   queue,
+  wrapUp,
   external_tag
 ) {
   let table = document.getElementById("tbody");
@@ -488,27 +506,34 @@ function addRow(
   let T_status = document.createElement("td");
   let T_assigned_to = document.createElement("td");
   let T_queue = document.createElement("td");
+  let T_wrapUp = document.createElement("td");
   let T_external_tag = document.createElement("td");
 
-  T_end_date.classList.add("end-date-column");
-  T_from.classList.add("end-date-column");
-  T_queue.classList.add("end-date-column");
-  T_external_tag.classList.add("end-date-column");
-  T_subject.classList.add("subject-column");
-  T_status.classList.add("status-column");
+  T_originating_direction.classList.add("size-x");
+  T_start_date.classList.add("size-x");
+  T_end_date.classList.add("size-m");
+  T_from.classList.add("size-l");
+  T_subject.classList.add("size-x");
+  T_status.classList.add("size-x");
+  T_assigned_to.classList.add("size-x");
+  T_queue.classList.add("size-m");
+  T_wrapUp.classList.add("size-l");
+  T_external_tag.classList.add("size-l");
+  
+
 
   row.id = id;
   row.setAttribute("data-row-id", id);
   select.innerHTML = "<gux-row-select></gux-row-select>";
   T_originating_direction.innerHTML = originating_direction;
-  T_start_date.innerHTML = `<gux-truncate>${new Date(start_date).toLocaleString(
-    "en-GB"
-  )}</gux-truncate>`;
+  T_start_date.innerHTML = `<gux-truncate>${new Intl.DateTimeFormat('en-GB', {
+    dateStyle: 'short',
+    timeStyle: 'short' }).format(new Date(start_date))}</gux-truncate>`;
 
   end_date
-    ? (T_end_date.innerHTML = `<gux-truncate>${new Date(
-        end_date
-      ).toLocaleString("en-GB")}</gux-truncate>`)
+    ? (T_end_date.innerHTML = `<gux-truncate>${new Intl.DateTimeFormat('en-GB', {
+    dateStyle: 'short',
+    timeStyle: 'short' }).format(new Date(end_date))}</gux-truncate>`)
     : (T_end_date.innerHTML = "N/A");
   T_from.innerHTML = `<gux-truncate>${from}</gux-truncate>`;
   T_subject.innerHTML = `<gux-truncate>${subject}</gux-truncate>`;
@@ -523,11 +548,12 @@ function addRow(
   // status==="Parked" ?T_assigned_to.innerHTML = `<p style="display:inline-block;">${assigned_to} <img src="park.png" width="15" height="15"></p>`:assigned_to
   // T_assigned_to.innerHTML = '<p style="display:inline-block;">Some text <img src="park.png" width="15" height="15"></p>'
   T_queue.innerHTML = `<gux-truncate>${queue}</gux-truncate>`;
+  T_wrapUp.innerHTML = wrapUp;
   T_external_tag.innerHTML = external_tag;
 
   row.addEventListener("click", function () {
     const conversationId = this.id;
-    const conversationEnd = this.querySelector(".end-date-column").textContent;
+    const conversationEnd = this.querySelector(".size-x").textContent;
     const subject = this.querySelector(".subject-column").textContent||""
     const status = this.querySelector(".status-column").textContent||""
     console.log("conversationStatus", status)
@@ -544,6 +570,7 @@ function addRow(
   row.appendChild(T_status);
   row.appendChild(T_assigned_to);
   row.appendChild(T_queue);
+  row.appendChild(T_wrapUp);
   row.appendChild(T_external_tag);
 
   table.appendChild(row);
@@ -557,7 +584,9 @@ async function rowClickHandler(clickedConversationId, conversationEnd, status, s
   
   if (conversationEndObject) {
    let difference = (cutOutDate.getMinutes()-JSON.parse(emailSettings).timeoutInMinutes)
-    cutOutDate.setMinutes(difference)
+    // cutOutDate.setMinutes(difference)
+    cutOutDate.setMinutes(-43200)
+
     conversationEndObject<cutOutDate?conversationIsActive = false:conversationIsActive = true
   }
 
@@ -580,6 +609,7 @@ async function rowClickHandler(clickedConversationId, conversationEnd, status, s
         clickedConversationId,
         messages.entities[i].id
       );
+      console.log("messageDetails", messageDetails);
       let htmlBody = messageDetails?.htmlBody;
       let textBody = messageDetails?.textBody;
       let body = htmlBody ? htmlBody : textBody;
@@ -592,8 +622,19 @@ async function rowClickHandler(clickedConversationId, conversationEnd, status, s
 
       let accordionSlot = document.createElement("h2");
       accordionSlot.setAttribute("slot", "header");
+      let options = {
+       
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+        hour: "numeric",
+        minute: "numeric",
+      };
 
-      accordionSlot.innerHTML = messages.entities[i].subject;
+      let headerRow = `<span class="message-date">${new Intl.DateTimeFormat("en-GB", options).format(new Date(messages.entities[i].time))}</span> <span> ${messages.entities[i].subject}</span>`;
+      console.log("headerRow", headerRow);
+
+      accordionSlot.innerHTML = headerRow;
       accordionSlot.setAttribute("style", "background-color: #F6F7F9");
 
       accordionElement.appendChild(accordionSlot);
@@ -981,4 +1022,44 @@ function moveIntervalForward(){
   interval = new Date(intervalStart).toISOString() + "/" + new Date(intervalEnd).toISOString();
   // sessionStorage.setItem("interval", interval);
   return interval;
+}
+
+async function getLatestWrapUpCode(conversation) {
+  let latestWrapUpCodeId = null;
+  let latestSegmentEnd = null;
+  let latestWrapUpCode = "";
+
+  // Loop through each participant
+  conversation.participants.forEach(participant => {
+      if (participant.purpose === 'agent') {
+          // Loop through each session of the participant
+          participant.sessions.forEach(session => {
+              // Loop through each segment of the session
+              session.segments.forEach(segment => {
+                  if (segment.segmentType === 'wrapup') {
+                      // Parse the segmentEnd timestamp into a Date object for comparison
+                      const segmentEndDate = new Date(segment.segmentEnd);
+
+                      // Check if the current segment has the latest segmentEnd
+                      if (!latestSegmentEnd || segmentEndDate > latestSegmentEnd) {
+                          latestSegmentEnd = segmentEndDate;
+                          latestWrapUpCodeId = segment.wrapUpCode;  // Store the wrapUpCode for the latest segment
+                      }
+                  }
+              });
+          });
+      }
+  });
+
+  if (latestWrapUpCodeId) {
+    try {
+      const wrapUpCodeDetails = await rapi.getRoutingWrapupcode(latestWrapUpCodeId);
+      latestWrapUpCode = wrapUpCodeDetails.name;
+    } catch (error) {
+      console.error('Error getting wrap-up code details:', error);
+    }
+    
+  }
+  return latestWrapUpCode;
+  
 }
