@@ -511,10 +511,10 @@ function addRow(
 
   T_originating_direction.classList.add("size-x");
   T_start_date.classList.add("size-x");
-  T_end_date.classList.add("size-m");
+  T_end_date.classList.add("end-column");
   T_from.classList.add("size-l");
-  T_subject.classList.add("size-x");
-  T_status.classList.add("size-x");
+  T_subject.classList.add("subject-column");
+  T_status.classList.add("status-column");
   T_assigned_to.classList.add("size-x");
   T_queue.classList.add("size-m");
   T_wrapUp.classList.add("size-l");
@@ -551,13 +551,15 @@ function addRow(
   T_wrapUp.innerHTML = wrapUp;
   T_external_tag.innerHTML = external_tag;
 
-  row.addEventListener("click", function () {
+  row.addEventListener("click", function (e) {
+    console.log("row clicked", this);
     const conversationId = this.id;
-    const conversationEnd = this.querySelector(".size-x").textContent;
+    const conversationEnd = this.querySelector(".end-column").textContent;
     const subject = this.querySelector(".subject-column").textContent||""
     const status = this.querySelector(".status-column").textContent||""
     console.log("conversationStatus", status)
     console.log("conversationSubject", subject)
+    console.log("conversationEnd", conversationEnd);
     rowClickHandler(conversationId, conversationEnd, status, subject);
   });
 
@@ -578,6 +580,7 @@ function addRow(
 
 async function rowClickHandler(clickedConversationId, conversationEnd, status, subject) {
   const conversationEndObject = convertStringToDate(conversationEnd);
+  console.log("conversationEndObject", conversationEndObject);
   let cutOutDate = new Date();
   console.log("threading", JSON.parse(emailSettings).timeoutInMinutes);
   let conversationIsActive = true
@@ -883,8 +886,8 @@ async function rowClickHandler(clickedConversationId, conversationEnd, status, s
       document.getElementById("messages-content").appendChild(reconnectButton);
     }
 
-    console.log("status", status);
-    console.log("aaaaa", !subject.includes("(Current)"));
+    // console.log("status", status);
+    // console.log("aaaaa", !subject.includes("(Current)"));
     const conversation = await capi.getConversation(clickedConversationId);
 
     if (status == "In Queue" && !subject.includes("(Current)")) {
@@ -928,7 +931,7 @@ const [datePart, timePart] = dateString.split(",");
 const [day, month, year] = datePart.split("/");
 const [hours, minutes, seconds] = timePart.split(":");
 
-const dateObject = new Date(year, month - 1, day, hours, minutes, seconds);
+const dateObject = new Date(year, month - 1, day, hours, minutes);
 return dateObject;
 }
 
