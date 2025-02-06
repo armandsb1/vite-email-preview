@@ -26,7 +26,6 @@ gc_conversationId
 client.setEnvironment(gc_region);
 
 // setting test data
-// gc_region = "mypurecloud.de";
 // gc_clientId = "3c2df9bc-bac4-4bee-947a-71da0385e6ad";
 // gc_redirectUrl = "http://localhost:5173/index.html";
 // gc_redirectUrl = "https://magical-piroshki-be2276.netlify.app";
@@ -166,7 +165,7 @@ document.getElementById("home-view").addEventListener("click", function () {
           const input = document.getElementById('searchEmail');
           input.value = '';
           formField.guxForceUpdate();
-          start();
+          getExternalContactHistory();
 })          
 
 loadSparkComponents();
@@ -179,7 +178,6 @@ start();
 async function start() {
   try {
     //   client.setEnvironment(gc_region)
-    // client.setEnvironment("mypurecloud.de");
     // client.setPersistSettings(true, "_mm_");
 
     console.log("%cLogging in to Genesys Cloud", "color: green");
@@ -199,13 +197,8 @@ async function start() {
     user = await uapi.getUsersMe({});
     console.log("user",user);
     // emailSettings = await getEmailThreading(client.authData.accessToken);
-    let intervalEnd = new Date();
-    let intervalStart = new Date();
-    intervalStart = intervalStart.setDate(intervalStart.getDate() - 30);
-    interval=new Date(intervalStart).toISOString() + "/" + intervalEnd.toISOString()
-    let searchDateField = document.getElementById("search-dates");
-    searchDateField.setAttribute("value",new Date(intervalStart).toLocaleDateString() + "-" + intervalEnd.toLocaleDateString())
-   await getExternalContactHistory(interval);
+    
+   await getExternalContactHistory();
     // console.log("history", externalContactId);
     //Enter in starting code.
     //  getWorkbins()
@@ -215,7 +208,14 @@ async function start() {
   }
 } //End of start() function
 
-async function getExternalContactHistory(interval) {
+
+async function getExternalContactHistory() {
+  let intervalEnd = new Date();
+    let intervalStart = new Date();
+    intervalStart = intervalStart.setDate(intervalStart.getDate() - 30);
+    interval=new Date(intervalStart).toISOString() + "/" + intervalEnd.toISOString()
+    let searchDateField = document.getElementById("search-dates");
+    searchDateField.setAttribute("value",new Date(intervalStart).toLocaleDateString() + "-" + intervalEnd.toLocaleDateString())
   let table = document.getElementById("tbody");
   table.innerHTML = "";
   try {
