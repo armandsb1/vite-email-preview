@@ -25,8 +25,8 @@ gc_conversationId
   : (gc_conversationId = sessionStorage.getItem("gc_conversationId"));
 
 // setting test data
-gc_region = "mypurecloud.de";
-gc_clientId = "3c2df9bc-bac4-4bee-947a-71da0385e6ad";
+// gc_region = "mypurecloud.de";
+// gc_clientId = "3c2df9bc-bac4-4bee-947a-71da0385e6ad";
 // gc_redirectUrl = "http://localhost:5173/index.html";
 // gc_redirectUrl = "https://magical-piroshki-be2276.netlify.app";
 
@@ -35,7 +35,7 @@ gc_clientId = "3c2df9bc-bac4-4bee-947a-71da0385e6ad";
 const uapi = new platformClient.UsersApi();
 const capi = new platformClient.ConversationsApi();
 const rapi = new platformClient.RoutingApi();
-let emailSettings = {};
+// let emailSettings = {};
 let user = {};
 let interval = "";
 let searchBy = "externalContactId";
@@ -196,7 +196,7 @@ async function start() {
     //GET Current UserId
     user = await uapi.getUsersMe({});
     console.log("user",user);
-    emailSettings = await getEmailThreading(client.authData.accessToken);
+    // emailSettings = await getEmailThreading(client.authData.accessToken);
     let intervalEnd = new Date();
     let intervalStart = new Date();
     intervalStart = intervalStart.setDate(intervalStart.getDate() - 30);
@@ -582,15 +582,15 @@ async function rowClickHandler(clickedConversationId, conversationEnd, status, s
   const conversationEndObject = convertStringToDate(conversationEnd);
   console.log("conversationEndObject", conversationEndObject);
   let cutOutDate = new Date();
-  console.log("threading", JSON.parse(emailSettings).timeoutInMinutes);
+  // console.log("threading", JSON.parse(emailSettings).timeoutInMinutes);
   let conversationIsActive = true
   
   if (conversationEndObject) {
-   let difference = (cutOutDate.getMinutes()-JSON.parse(emailSettings).timeoutInMinutes)
+  //  let difference = (cutOutDate.getMinutes()-JSON.parse(emailSettings).timeoutInMinutes)
     // cutOutDate.setMinutes(difference)
     cutOutDate.setMinutes(-43200)
 
-    conversationEndObject<cutOutDate?conversationIsActive = false:conversationIsActive = true
+    conversationEndObject < cutOutDate ? conversationIsActive = false:conversationIsActive = true
   }
 
   console.log("conversationIsActive", conversationIsActive);
@@ -599,6 +599,7 @@ async function rowClickHandler(clickedConversationId, conversationEnd, status, s
   // console.log("clickedConversationId", clickedConversationId);
 
   if (clickedConversationId) {
+    await client.loginImplicitGrant(gc_clientId, gc_redirectUrl, {});
     let accordionDiv = document.createElement("div");
     accordionDiv.setAttribute("id", "messages-accordion");
 
@@ -1009,7 +1010,7 @@ function moveIntervalBack(){
   console.log("intervalEnd", intervalEnd);
   interval = new Date(intervalStart).toISOString() + "/" + new Date(intervalEnd).toISOString();
   // sessionStorage.setItem("interval", interval);
-  popUp(interval,"","Interval moved back by 30 days")
+  // popUp(interval,"","Interval moved back by 30 days")
   return interval;
 }
 
