@@ -187,6 +187,7 @@ async function start() {
     console.log("client", client);
     console.log("gc_clientId", gc_clientId);
     console.log("gc_redirectUrl", gc_redirectUrl);
+    console.log("region", gc_region);
     await client.loginImplicitGrant(gc_clientId, gc_redirectUrl, {});
     console.log("region", gc_region);
     // const myClientApp = new ClientApp({
