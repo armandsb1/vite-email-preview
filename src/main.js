@@ -2,7 +2,6 @@ import platformClient from "purecloud-platform-client-v2";
 import { registerSparkComponents } from "genesys-spark";
 import ClientApp from "purecloud-client-app-sdk";
 const client = platformClient.ApiClient.instance;
-client.setEnvironment("mypurecloud.de");
 client.setPersistSettings(true, "my_app_name");
 
 let url = new URL(document.location.href);
@@ -23,6 +22,8 @@ gc_redirectUrl
 gc_conversationId
   ? sessionStorage.setItem("gc_conversationId", gc_conversationId)
   : (gc_conversationId = sessionStorage.getItem("gc_conversationId"));
+
+client.setEnvironment(gc_region);
 
 // setting test data
 // gc_region = "mypurecloud.de";
