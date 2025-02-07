@@ -98,14 +98,18 @@ document
   .addEventListener("click", function () {
     let messagesAccordion = document.getElementById("messages-accordion");
     if (messagesAccordion){
+      console.log("removing messagesAccordion");
     messagesAccordion.remove()};
     let threadAttachmentList = document.getElementById("attachment-table");
     if (threadAttachmentList){
+      console.log("removing threadAttachmentList");
     threadAttachmentList.remove()};
     if (document.getElementById("reconnectButton")){
+      console.log("removing reconnectButton");
       document.getElementById("reconnectButton").remove();
     }
     if (document.getElementById("reassignButton")){
+      console.log("removing reassignButton");
       document.getElementById("reassignButton").remove();
     }
     // messagesAccordion = document.getElementById("threadAttachments");
