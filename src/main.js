@@ -3,7 +3,7 @@ import { registerSparkComponents } from "genesys-spark";
 import ClientApp from "purecloud-client-app-sdk";
 const client = platformClient.ApiClient.instance;
 client.setPersistSettings(true, "my_app_name");
-
+loadSparkComponents();
 let url = new URL(document.location.href);
 let gc_region = url.searchParams.get("gc_region");
 let gc_clientId = url.searchParams.get("gc_clientId");
@@ -172,7 +172,7 @@ document.getElementById("home-view").addEventListener("click", function () {
           getExternalContactHistory();
 })          
 
-loadSparkComponents();
+
 async function loadSparkComponents() {
   await registerSparkComponents();
 }
