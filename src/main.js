@@ -301,6 +301,7 @@ async function getExternalContactHistory() {
           subject,
           status,
           owner,
+          lastAgent,
           lastQueue,
           wrapUp,
           item.externalTag?item.externalTag:""
@@ -395,6 +396,7 @@ async function getEmailContactHistory(addressFrom, interval) {
           subject,
           status,
           owner,
+          lastAgent,
           lastQueue,
           wrapUp,
           item.externalTag
@@ -493,6 +495,7 @@ function addRow(
   subject,
   status,
   assigned_to,
+  last_agent,
   queue,
   wrapUp,
   external_tag
@@ -507,6 +510,7 @@ function addRow(
   let T_subject = document.createElement("td");
   let T_status = document.createElement("td");
   let T_assigned_to = document.createElement("td");
+  let T_last_agent = document.createElement("td");
   let T_queue = document.createElement("td");
   let T_wrapUp = document.createElement("td");
   let T_external_tag = document.createElement("td");
@@ -518,6 +522,7 @@ function addRow(
   T_subject.classList.add("subject-column");
   T_status.classList.add("status-column");
   T_assigned_to.classList.add("size-x");
+  T_last_agent.classList.add("size-l");
   T_queue.classList.add("size-m");
   T_wrapUp.classList.add("size-l");
   T_external_tag.classList.add("size-l");
@@ -542,6 +547,7 @@ function addRow(
   T_status.innerHTML = status;
   // T_routing_state.innerHTML = routing_state;
   T_assigned_to.innerHTML = assigned_to;
+  T_last_agent.innerHTML = last_agent;
   if (status === "In Queue") {
     T_assigned_to.innerHTML = `<gux-truncate>${queue}</gux-truncate>`;
   } else if (status === "Parked") {
@@ -573,6 +579,7 @@ function addRow(
   row.appendChild(T_subject);
   row.appendChild(T_status);
   row.appendChild(T_assigned_to);
+  row.appendChild(T_last_agent);
   row.appendChild(T_queue);
   row.appendChild(T_wrapUp);
   row.appendChild(T_external_tag);
