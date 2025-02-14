@@ -339,7 +339,7 @@ async function getEmailContactHistory(addressFrom, interval) {
           lastAgent,
           lastQueue,
           wrapUp,
-          item.externalTag
+          item.externalTag ? item.externalTag : ""
         );
       }
     }
