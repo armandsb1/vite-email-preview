@@ -34,6 +34,7 @@ queue: string|undefined;
 status: string|undefined;
 subject: string|undefined;
 to: string|undefined;
+lastACDparticipant: string|undefined;
 }
 
 //types for conversationDetailQuery response

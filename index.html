@@ -21,6 +21,12 @@
     />
     <link rel="stylesheet" href="/src/style.css">
     <script type="module" src="/src/main.ts"></script>
+    <style>
+      th[data-column-name="participant"], 
+      td[data-column-name="participant"] {
+        display: none;
+      }
+    </style>
   </head>
   <body>
     <br />
@@ -81,17 +87,26 @@
         </div>
       
         <div slot="contextual-actions">
-          <gux-table-toolbar-action action="delete"></gux-table-toolbar-action>
+          
         </div>
       
         <div slot="permanent-actions">
+          <gux-table-toolbar-action action="delete" id="delete-button"></gux-table-toolbar-action>
+        <div class="transfer-block">
+          <gux-dropdown id="dropdownWorkbin" class="drop" filter-type="starts-with" placeholder="Select a Queue">
+            <gux-listbox id="listQueues" aria-label="types"></gux-listbox>
+          </gux-dropdown>
           <gux-table-toolbar-action action="export"></gux-table-toolbar-action>
+        </div>
+        <div class="transfer-block">
+          <gux-dropdown id="dropdownUser" class="drop" filter-type="starts-with" placeholder="Select a User">
+            <gux-listbox id="listUsers" aria-label="types"></gux-listbox>
+          </gux-dropdown>
           <gux-table-toolbar-action action="refresh" id="refresh"></gux-table-toolbar-action>
-          <gux-table-toolbar-action action="revert"></gux-table-toolbar-action>
-          <gux-table-toolbar-action action="import"></gux-table-toolbar-action>
+          </div>  
         </div>
       
-        <div slot="menu-actions">
+        <!-- <div slot="menu-actions">
           <gux-table-toolbar-action action="export"></gux-table-toolbar-action>
           <gux-table-toolbar-action action="refresh" oninput="notify(event)"></gux-table-toolbar-action>
         </div>
@@ -99,7 +114,7 @@
         <gux-table-toolbar-custom-action slot="primary-action" accent="primary">
           <span slot="text">Add</span>
           <gux-icon slot="icon" icon-name="add" decorative></gux-icon>
-        </gux-table-toolbar-custom-action>
+        </gux-table-toolbar-custom-action> -->
       </gux-table-toolbar>
       <gux-table
         object-table
@@ -108,6 +123,10 @@
         id="sortable-table"
       >
         <table style="inline-size: 100%; table-layout: auto" slot="data">
+          <!-- <colgroup>
+            <col span="9">
+            <col span="1" style="visibility: collapse">
+          </colgroup> -->
           <thead>
             <tr data-row-id="head">
               <th><gux-all-row-select></gux-all-row-select></th>
@@ -130,6 +149,7 @@
               <!-- <th data-column-name="worktype">Worktype</th> -->
               <!-- <th data-column-name="external-tag" class="size-l">External Tag</th> -->
               <!-- <th data-column-name="name">Name</th> -->
+               <th data-column-name="participant">Participant</th>
               <th data-column-name="action" data-cell-action>Action</th>
             </tr>
           </thead>
@@ -184,6 +204,22 @@
       class="loading"
       screenreader-text="Loading..."
     ></gux-radial-loading>
+
+    <gux-modal id="preview-modal" size="large">
+      <div slot="content" id="preview-modal-content">
+    
+      </div>
+      <gux-cta-group slot="footer" align="end">
+        <gux-button slot="primary" onclick="notify(event)" autofocus
+          >Claim email</gux-button
+        >
+        <gux-button
+          slot="dismiss"
+          onclick="document.getElementById('preview-modal').close()"
+          >Cancel</gux-button
+        >
+      </gux-cta-group>
+    </gux-modal>
 
     <!-- <gux-modal id="modal" size="small">
       <div slot="title">Warning!</div>

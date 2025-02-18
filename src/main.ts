@@ -36,7 +36,7 @@ client.setEnvironment(gc_region);
 
 const uapi = new platformClient.UsersApi();
 const capi = new platformClient.ConversationsApi();
-// const rapi = new platformClient.RoutingApi();
+const rapi = new platformClient.RoutingApi();
 
 let user = {};
 // let interval = "";
@@ -124,16 +124,29 @@ let user = {};
 //   getExternalContactHistory();
 // });
 
-document.getElementById("refresh").addEventListener("click", function () {
+document.getElementById("refresh")!.addEventListener("click", function () {
   getActiveEmails();
 });
 
-
-
+window.addEventListener("click", async function (e) {
+  console.log("Window click", (e.target as HTMLElement).id);
+  if ((e.target as HTMLElement).id === "delete-button") {
+    try {
+      let rows = document.getElementById("tbody")!.children;
+      for (const row of rows) {
+        if (row?.attributes[2]?.name == "data-selected-row" && row?.children[6]?.textContent?.toLowerCase() == "in queue") {
+          console.log("row", row);
+          console.log("row id", row?.children[9]?.textContent);
+        }
+      }
+    } catch (error) {
+      console.error("Error: ", error);
+    }
+  }
+});
 async function loadSparkComponents() {
   await registerSparkComponents();
 }
-
 
 start();
 
@@ -155,6 +168,8 @@ async function start() {
     user = await uapi.getUsersMe({});
     console.log("user", user);
     //GET Active Emails
+    getUsers();
+    getQueues();
     getActiveEmails();
   } catch (err) {
     console.log("Error: ", err);
@@ -167,7 +182,7 @@ async function getActiveEmails() {
     return;
   }
   table.innerHTML = "";
-  document.getElementById("loading").style.display = "block";
+  document.getElementById("loading")!.style.display = "block";
 
   try {
     const conversations = await processEmailQuery();
@@ -176,7 +191,7 @@ async function getActiveEmails() {
       console.log("No active emails found");
       return;
     }
-    let emailsList:EmailListElement[] = [];
+    let emailsList: EmailListElement[] = [];
     const queueEmails = getEmailsByStatus(conversations, "acd", "interact");
     const queueEmailsData = extractEmailData(queueEmails, "In Queue");
     const interactingEmails = getEmailsByStatus(conversations, "agent", "interact", "user");
@@ -191,20 +206,31 @@ async function getActiveEmails() {
     const heldEmails = getEmailsByStatus(conversations, "agent", "hold", "user");
     const heldEmailsData = extractEmailData(heldEmails, "On Hold");
     // console.log("heldEmails", heldEmails);
-    emailsList = [...emailsList, ...queueEmailsData, ...interactingEmailsData, ...parkedEmailsData, ...alertingEmailsData, ...heldEmailsData];
+    emailsList = [
+      ...emailsList,
+      ...queueEmailsData,
+      ...interactingEmailsData,
+      ...parkedEmailsData,
+      ...alertingEmailsData,
+      ...heldEmailsData,
+    ];
     console.log("emailsList", emailsList);
-    emailsList.sort((a, b) => new Date(b.lastMessage!).getTime() - new Date(a.lastMessage!).getTime());
-    document.getElementById("loading").style.display = "none";
-  
-    populateTableData(emailsList);
+    emailsList.sort(
+      (a, b) => new Date(b.lastMessage!).getTime() - new Date(a.lastMessage!).getTime()
+    );
+    document.getElementById("loading")!.style.display = "none";
 
+    populateTableData(emailsList);
   } catch (error) {
     console.error("Error: ", error);
   }
 }
 
-function extractEmailData(emails: platformClient.Models.AnalyticsConversationWithoutAttributes[]|undefined, status: string) {
-  let emailListPart=[]
+function extractEmailData(
+  emails: platformClient.Models.AnalyticsConversationWithoutAttributes[] | undefined,
+  status: string
+) {
+  let emailListPart = [];
   if (emails) {
     for (const email of emails) {
       const customerParticipant = email.participants?.filter(
@@ -227,10 +253,10 @@ function extractEmailData(emails: platformClient.Models.AnalyticsConversationWit
           customerParticipant!.sessions!.length - 1
         ].metrics!.filter((m) => m.name == "nConnected")[0].emitDate,
         lastAgent: findLatestInteractParticipant(agentParticipants) || "",
+        lastACDparticipant: findLatestInteractParticipant(queueParticipants, "id") || "",
       };
       emailListPart.push(emailElement);
     }
-    
   }
   return emailListPart;
 }
@@ -316,23 +342,29 @@ function getEmailsByStatus(
   });
 }
 
-function findLatestInteractParticipant(data: platformClient.Models.Participant[]|undefined) {
-  let latestParticipant:string|null = null;
-  let latestTimestamp:Date|null = null;
-if (!data) {return null}
-  data.forEach((participant:any) => {
-      participant.sessions.forEach((session:any) => {
-          session.segments.forEach((segment:any) => {
-              if (segment.segmentType === "interact") {
-                  const segmentStart = new Date(segment.segmentStart);
-                  
-                  if (!latestTimestamp || segmentStart > latestTimestamp) {
-                      latestTimestamp = segmentStart;
-                      latestParticipant = participant.participantName;
-                  }
-              }
-          });
+function findLatestInteractParticipant(data: platformClient.Models.Participant[] | undefined, type?: "name"|"id") {
+  let latestParticipant: string | null = null;
+  let latestTimestamp: Date | null = null;
+  if (!data) {
+    return null;
+  }
+  data.forEach((participant: any) => {
+    participant.sessions.forEach((session: any) => {
+      session.segments.forEach((segment: any) => {
+        if (segment.segmentType === "interact") {
+          const segmentStart = new Date(segment.segmentStart);
+
+          if (!latestTimestamp || segmentStart > latestTimestamp) {
+            latestTimestamp = segmentStart;
+            if (type === "id") {
+              latestParticipant = participant.participantId;
+            } else {
+            latestParticipant = participant.participantName;
+            }
+          }
+        }
       });
+    });
   });
 
   return latestParticipant;
@@ -346,34 +378,33 @@ function populateTableData(emailList: EmailListElement[]) {
   emailList.forEach((email) => {
     console.log("email", email);
 
-        addRow(
-          email.conversationId!,
-          email.firstMessage!,
-          email.lastMessage!,
-          email.from!,
-          email.to!,
-          email.subject!,
-          email.status!,
-          email.queue!,
-          email.lastAgent!
-        );
-      }
+    addRow(
+      email.conversationId!,
+      email.firstMessage!,
+      email.lastMessage!,
+      email.from!,
+      email.to!,
+      email.subject!,
+      email.status!,
+      email.queue!,
+      email.lastAgent!,
+      email.lastACDparticipant!
     );
-    document.getElementById("loading").style.display = "none";
-  
+  });
+  document.getElementById("loading")!.style.display = "none";
 }
 
-function addRow(
+function addRow(this: any, 
   id: string,
- firstMessage:string,
-  lastMessage:string,
-  from:string,
-  to:string,
-  subject:string,
-  status:string,
-  queue:string,
-  lastAgent:string,
-
+  firstMessage: string,
+  lastMessage: string,
+  from: string,
+  to: string,
+  subject: string,
+  status: string,
+  queue: string,
+  lastAgent: string,
+  participantId?: string
 ) {
   let table = document.getElementById("tbody");
   let row = document.createElement("tr");
@@ -387,6 +418,7 @@ function addRow(
   let T_status = document.createElement("td");
   let T_last_agent = document.createElement("td");
   let T_queue = document.createElement("td");
+  let T_participantId = document.createElement("td");
   let T_action = document.createElement("td");
 
   // T_originating_direction.classList.add("size-x");
@@ -410,11 +442,11 @@ function addRow(
     timeStyle: "short",
   }).format(new Date(firstMessage))}`;
 
-T_last_message.innerHTML = `${new Intl.DateTimeFormat("en-GB", {
-        dateStyle: "short",
-        timeStyle: "short",
-      }).format(new Date(lastMessage))}`
-   
+  T_last_message.innerHTML = `${new Intl.DateTimeFormat("en-GB", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(lastMessage))}`;
+
   T_from.innerHTML = `<gux-truncate>${from}</gux-truncate>`;
   T_to.innerHTML = `<gux-truncate>${to}</gux-truncate>`;
   T_subject.innerHTML = `<gux-truncate>${subject}</gux-truncate>`;
@@ -423,12 +455,37 @@ T_last_message.innerHTML = `${new Intl.DateTimeFormat("en-GB", {
   // T_assigned_to.innerHTML = assigned_to;
   T_last_agent.innerHTML = lastAgent;
   T_queue.innerHTML = `<gux-truncate>${queue}</gux-truncate>`;
-  T_action.innerHTML = `<gux-button accent="danger" id="view-${id}">
-    <gux-icon
-      icon-name="fa/eye-regular"
-      screenreader-text="This will be read by a screen reader"
-    ></gux-icon
-  ></gux-button>`;
+  T_participantId.textContent = participantId || "";
+  T_participantId.style.display = "none";
+  //action buttons
+  let T_actionButtonDiv = document.createElement("div");
+  T_actionButtonDiv.classList.add("container");
+  T_action.appendChild(T_actionButtonDiv);
+  let T_action_viewButton = document.createElement("gux-button");
+  T_action_viewButton.setAttribute("accent", "primary");
+  T_action_viewButton.onclick = previewEmail.bind(this, id);
+  let T_action_viewButton_icon = document.createElement("gux-icon");
+  T_action_viewButton_icon.setAttribute("icon-name", "fa/eye-regular");
+  T_action_viewButton_icon.setAttribute("screenreader-text", "View");
+  T_action_viewButton.appendChild(T_action_viewButton_icon);
+  T_actionButtonDiv.appendChild(T_action_viewButton);
+  let T_action_claimButton = document.createElement("gux-button");
+  T_action_claimButton.setAttribute("accent", "secondary");
+  T_action_claimButton.onclick = function () {
+    console.log("claim button clicked", id);
+  };
+  let T_action_claimButton_icon = document.createElement("gux-icon");
+  T_action_claimButton_icon.setAttribute("icon-name", "arrow-down");
+  T_action_claimButton_icon.setAttribute("screenreader-text", "View");
+  T_action_claimButton.appendChild(T_action_claimButton_icon);
+  T_actionButtonDiv.appendChild(T_action_claimButton);
+
+  // T_action.innerHTML = `<gux-button accent="danger" id="view-${id}">
+  //   <gux-icon
+  //     icon-name="fa/eye-regular"
+  //     screenreader-text="This will be read by a screen reader"
+  //   ></gux-icon
+  // ></gux-button>`;
   // if (status === "In Queue") {
   //   T_assigned_to.innerHTML = `<gux-truncate>${queue}</gux-truncate>`;
   // } else if (status === "Parked") {
@@ -462,13 +519,54 @@ T_last_message.innerHTML = `${new Intl.DateTimeFormat("en-GB", {
   row.appendChild(T_queue);
   // row.appendChild(T_wrapUp);
   // row.appendChild(T_external_tag);
+  row.appendChild(T_participantId);
   row.appendChild(T_action);
 
-  table.appendChild(row);
+  table!.appendChild(row);
 }
 
+function popup(id: string) {
+  console.log("popup", id);
+}
 
-function popup(id:string) {console.log("popup", id);}
+async function previewEmail (id:string) {
+  console.log("view button clicked", id);
+  document.getElementById("preview-modal-content")!.innerHTML = "aaaaaaa";
+  //@ts-expect-error
+  document.getElementById("preview-modal")!.showModal();
+};
+
+async function getUsers() {
+  // TODO - if more then 500 active users in ORG need setup paging
+  let users = await uapi.getUsers({
+    pageSize: 500,
+    expand: ['presence'],
+    state: 'active',
+  })
+  console.log(users)
+  let list = document.getElementById('listUsers')
+  for (const user of users.entities) {
+    let item = document.createElement('gux-option')
+    item.innerText = user.name
+    item.setAttribute('value', user.id)
+    list.appendChild(item)
+  }
+}
+
+async function getQueues() {
+  // TODO - if more then 500 active users in ORG need setup paging
+  let queues = await rapi.getRoutingQueues({
+    pageSize: 500,
+  })
+  console.log(queues)
+  let list = document.getElementById('listQueues')
+  for (const queue of queues.entities) {
+    let item = document.createElement('gux-option')
+    item.innerText = queue.name
+    item.setAttribute('value', queue.id)
+    list.appendChild(item)
+  }
+}
 // async function getExternalContactHistory() {
 //   let intervalEnd = new Date();
 //   let intervalStart = new Date();
