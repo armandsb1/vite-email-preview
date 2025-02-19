@@ -94,17 +94,49 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 } */
-
-.container {
+.search-form {
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 4px;
+  margin-right: 16px;
+}
+.button-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
 }
 .transfer-block {
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 4px;
-  border: 1px solid blue;
+  /* border: 1px solid blue; */
 }
+
+.table-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: justify-between;
+  gap: 4px;
+}
+
+.toolbar-left {
+  min-width: 300px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+  margin: 8px;
+}
+
+.toolbar-right {
+  min-width: 200px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin: 8px;
+}
+

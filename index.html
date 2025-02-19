@@ -74,7 +74,7 @@
         ></gux-icon
       ></gux-button>
       </div> -->
-      <gux-table-toolbar>
+      <!-- <gux-table-toolbar>
         <div slot="search-and-filter">
           <gux-form-field-search label-position="screenreader">
             <input slot="input" type="search" name="a-3" placeholder="Enter search" />
@@ -104,7 +104,7 @@
           </gux-dropdown>
           <gux-table-toolbar-action action="refresh" id="refresh"></gux-table-toolbar-action>
           </div>  
-        </div>
+        </div> -->
       
         <!-- <div slot="menu-actions">
           <gux-table-toolbar-action action="export"></gux-table-toolbar-action>
@@ -115,7 +115,54 @@
           <span slot="text">Add</span>
           <gux-icon slot="icon" icon-name="add" decorative></gux-icon>
         </gux-table-toolbar-custom-action> -->
-      </gux-table-toolbar>
+      <!-- </gux-table-toolbar> -->
+      <div class="table-toolbar">
+        <div class="toolbar-left">
+ 
+          <div class="search-form">
+          <gux-form-field-search label-position="screenreader">
+            <input slot="input" type="search" name="a-3" placeholder="Enter search" />
+            <label slot="label">Toolbar Search</label>
+          </gux-form-field-search>
+          <gux-button id="search" >
+            <gux-icon id="search" icon-name="search" decorative></gux-icon>
+            <span>Search</span>
+          </gux-button>
+        </div>
+          <gux-button id="refresh" >
+            <gux-icon id="refresh" icon-name="refresh" decorative></gux-icon>
+            <span>Refresh</span>
+          </gux-button>
+        </div>
+        <div class="toolbar-right">
+          <div class="transfer-block">
+            <gux-dropdown id="dropdownQueue" class="drop" filter-type="starts-with" placeholder="Select a Queue">
+              <gux-listbox id="listQueues" aria-label="types"></gux-listbox>
+            </gux-dropdown>
+            <gux-button accent="secondary" id="transfer-queue" >
+              <gux-icon icon-name="delete" decorative></gux-icon>
+              <span>Transfer to queue</span>
+            </gux-button>
+          </div>
+          <div class="transfer-block">
+            <gux-dropdown id="dropdownUser" class="drop" filter-type="starts-with" placeholder="Select a User">
+              <gux-listbox id="listUsers" aria-label="types"></gux-listbox>
+            </gux-dropdown>
+            <gux-button accent="secondary" id="transfer-user" >
+              <gux-icon icon-name="delete" decorative></gux-icon>
+              <span>Transfer to user</span>
+            </gux-button>
+            </div>  
+        
+          <gux-button accent="danger" id="delete-emails" >
+            <gux-icon icon-name="delete" decorative></gux-icon>
+            <span>Delete</span>
+          </gux-button>
+        </div>
+        </div>
+   
+
+      </div>
       <gux-table
         object-table
         selectable-rows
@@ -150,7 +197,7 @@
               <!-- <th data-column-name="external-tag" class="size-l">External Tag</th> -->
               <!-- <th data-column-name="name">Name</th> -->
                <th data-column-name="participant">Participant</th>
-              <th data-column-name="action" data-cell-action>Action</th>
+              <th data-column-name="action" data-cell-action style="text-align: center;">Action</th>
             </tr>
           </thead>
           <tbody id="tbody"></tbody>

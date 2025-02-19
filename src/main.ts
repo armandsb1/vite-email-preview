@@ -129,7 +129,7 @@ document.getElementById("refresh")!.addEventListener("click", function () {
 });
 
 window.addEventListener("click", async function (e) {
-  console.log("Window click", (e.target as HTMLElement).id);
+  console.log("Window click", (e));
   if ((e.target as HTMLElement).id === "delete-button") {
     try {
       let rows = document.getElementById("tbody")!.children;
@@ -142,6 +142,14 @@ window.addEventListener("click", async function (e) {
     } catch (error) {
       console.error("Error: ", error);
     }
+  }
+
+  if (e.target.id === "transfer-queue") {
+    console.log("Transfer Queue button clicked");
+    let selectedQueue = (document.getElementById("listQueues") as HTMLSelectElement).value;
+    let selectedUser = (document.getElementById("listUsers") as HTMLSelectElement).value;
+    console.log("selectedQueue", selectedQueue);
+    console.log("selectedUser", selectedUser);
   }
 });
 async function loadSparkComponents() {
@@ -459,7 +467,7 @@ function addRow(this: any,
   T_participantId.style.display = "none";
   //action buttons
   let T_actionButtonDiv = document.createElement("div");
-  T_actionButtonDiv.classList.add("container");
+  T_actionButtonDiv.classList.add("button-container");
   T_action.appendChild(T_actionButtonDiv);
   let T_action_viewButton = document.createElement("gux-button");
   T_action_viewButton.setAttribute("accent", "primary");
@@ -543,12 +551,15 @@ async function getUsers() {
     expand: ['presence'],
     state: 'active',
   })
+  if (!users) {
+    return
+  }
   console.log(users)
-  let list = document.getElementById('listUsers')
-  for (const user of users.entities) {
+  let list = document.getElementById('listUsers')!
+  for (const user of users.entities!) {
     let item = document.createElement('gux-option')
-    item.innerText = user.name
-    item.setAttribute('value', user.id)
+    item.innerText = user.name!
+    item.setAttribute('value', user.id!)
     list.appendChild(item)
   }
 }
@@ -558,12 +569,15 @@ async function getQueues() {
   let queues = await rapi.getRoutingQueues({
     pageSize: 500,
   })
+  if (!queues) {
+    return;
+  }
   console.log(queues)
-  let list = document.getElementById('listQueues')
-  for (const queue of queues.entities) {
+  let list = document.getElementById('listQueues')!
+  for (const queue of queues.entities!) {
     let item = document.createElement('gux-option')
-    item.innerText = queue.name
-    item.setAttribute('value', queue.id)
+    item.innerText = queue.name!
+    item.setAttribute('value', queue.id!)
     list.appendChild(item)
   }
 }
