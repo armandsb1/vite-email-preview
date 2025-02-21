@@ -120,18 +120,29 @@
         <div class="toolbar-left">
  
           <div class="search-form">
-          <gux-form-field-search label-position="screenreader">
-            <input slot="input" type="search" name="a-3" placeholder="Enter search" />
+          <gux-form-field-search label-position="screenreader" id="search-field">
+            <input slot="input" type="search" name="search-field" placeholder="Enter search" id="search-value"/>
             <label slot="label">Toolbar Search</label>
           </gux-form-field-search>
-          <gux-button id="search" >
+          <gux-dropdown id="status-field" style="width:200px;" placeholder="Filter by status">
+            <gux-listbox aria-label="input" name="status-field" id="status-value">
+              <gux-option value="">All</gux-option>
+              <gux-option value="In Queue">In Queue</gux-option>
+              <gux-option value="Interacting">Interacting</gux-option>
+              <gux-option value="Parked">Parked</gux-option>
+              <gux-option value="Alerting">Alerting</gux-option>
+              <gux-option value="On Hold">On Hold</gux-option>
+            </gux-listbox>
+            <!-- <label slot="label">Status</label> -->
+          </gux-dropdown>
+          <!-- <gux-button  >
             <gux-icon id="search" icon-name="search" decorative></gux-icon>
-            <span>Search</span>
-          </gux-button>
+            <span id="search">Search</span>
+          </gux-button> -->
         </div>
-          <gux-button id="refresh" >
+          <gux-button  >
             <gux-icon id="refresh" icon-name="refresh" decorative></gux-icon>
-            <span>Refresh</span>
+            <span id="refresh">Refresh</span>
           </gux-button>
         </div>
         <div class="toolbar-right">
@@ -139,24 +150,24 @@
             <gux-dropdown id="dropdownQueue" class="drop" filter-type="starts-with" placeholder="Select a Queue">
               <gux-listbox id="listQueues" aria-label="types"></gux-listbox>
             </gux-dropdown>
-            <gux-button accent="secondary" id="transfer-queue" >
-              <gux-icon icon-name="delete" decorative></gux-icon>
-              <span>Transfer to queue</span>
+            <gux-button accent="secondary"  >
+              <gux-icon icon-name="delete" decorative id="transfer-queue"></gux-icon>
+              <span id="transfer-queue">Transfer to queue</span>
             </gux-button>
           </div>
           <div class="transfer-block">
             <gux-dropdown id="dropdownUser" class="drop" filter-type="starts-with" placeholder="Select a User">
               <gux-listbox id="listUsers" aria-label="types"></gux-listbox>
             </gux-dropdown>
-            <gux-button accent="secondary" id="transfer-user" >
-              <gux-icon icon-name="delete" decorative></gux-icon>
-              <span>Transfer to user</span>
+            <gux-button accent="secondary"  >
+              <gux-icon icon-name="delete" decorative id="transfer-user"></gux-icon>
+              <span id="transfer-user">Transfer to user</span>
             </gux-button>
             </div>  
         
-          <gux-button accent="danger" id="delete-emails" >
-            <gux-icon icon-name="delete" decorative></gux-icon>
-            <span>Delete</span>
+          <gux-button accent="danger"  >
+            <gux-icon icon-name="delete" decorative id="delete-emails"></gux-icon>
+            <span id="delete-emails">Delete</span>
           </gux-button>
         </div>
         </div>
@@ -176,7 +187,7 @@
           </colgroup> -->
           <thead>
             <tr data-row-id="head">
-              <th><gux-all-row-select></gux-all-row-select></th>
+              <th id="row-select"><gux-all-row-select></gux-all-row-select></th>
               <!-- <th data-column-name="priority" data-cell-numeric aria-sort="ascending">Priority<gux-sort-control /></th> -->
               <!-- <th data-column-name="originatingDirection" class="size-x" style="width: 80px;">Direction</th> -->
 
@@ -209,60 +220,39 @@
 
     </div>
   </div>
-    <div id="separateView" class="view">
-      <gux-button id="backToOriginalView">Back</gux-button>
 
-      <gux-tabs-advanced>
-        <gux-tab-advanced-list
-          slot="tab-list"
-          allow-sort="false"
-          show-new-tab-button="false"
-          tab-limit="4"
-        >
-          <gux-tab-advanced tab-id="emailListTab">
-            <gux-icon icon-name="user-directory" decorative="true"></gux-icon>
-            Email
-          </gux-tab-advanced>
-          <gux-tab-advanced tab-id="emailAttachmentTab" id="attachmentTab">
-            <gux-icon icon-name="attachment" decorative="true"></gux-icon>
-            Attachment
-          </gux-tab-advanced>
-          
-        </gux-tab-advanced-list>
-        <gux-tab-advanced-panel tab-id="emailListTab">
-          <span id="messages-content"></span>
-        </gux-tab-advanced-panel>
-        <gux-tab-advanced-panel tab-id="emailAttachmentTab">
-          <span>Attachments in message thread</span>
-          <div id="threadAttachments"></div>
-        </gux-tab-advanced-panel>
-        
-      </gux-tabs-advanced>
-
-
-      <!-- <gux-accordion single-open-section> </gux-accordion> -->
-      <!-- Separate view content here -->
-    </div>
 
     <!--Loader and modal-->
 
-    <gux-radial-loading
-      id="loading"
-      class="loading"
-      screenreader-text="Loading..."
-    ></gux-radial-loading>
+
 
     <gux-modal id="preview-modal" size="large">
       <div slot="content" id="preview-modal-content">
     
       </div>
       <gux-cta-group slot="footer" align="end">
-        <gux-button slot="primary" onclick="notify(event)" autofocus
+        <gux-button slot="primary" id="claim-email" autofocus
           >Claim email</gux-button
         >
         <gux-button
           slot="dismiss"
           onclick="document.getElementById('preview-modal').close()"
+          >Cancel</gux-button
+        >
+      </gux-cta-group>
+    </gux-modal>
+
+    <gux-modal id="delete-modal" size="medium">
+      <div slot="content" id="preview-modal-content">
+        <p>Are you sure to disconnect selected emails?</p>
+      </div>
+      <gux-cta-group dangerous slot="footer" align="end" danger variant>
+        <gux-button slot="primary" id="delete-email-modal-button" autofocus
+          >Disconnect</gux-button
+        >
+        <gux-button
+          slot="dismiss"
+          onclick="document.getElementById('delete-modal').close()"
           >Cancel</gux-button
         >
       </gux-cta-group>

@@ -38,7 +38,12 @@ const uapi = new platformClient.UsersApi();
 const capi = new platformClient.ConversationsApi();
 const rapi = new platformClient.RoutingApi();
 
-let user = {};
+let user: platformClient.Models.UserMe = {};
+let searchValue = "";
+let statusValue = "";
+let selectedConversationId = "";
+let selectedParticipantId = "";
+let selectedStatus = "";
 // let interval = "";
 // let searchBy = "externalContactId";
 
@@ -124,17 +129,71 @@ let user = {};
 //   getExternalContactHistory();
 // });
 
-document.getElementById("refresh")!.addEventListener("click", function () {
-  getActiveEmails();
+// document.getElementById("refresh")!.addEventListener("click", function () {
+//   getActiveEmails();
+// });
+
+document.getElementById("search-value").addEventListener("keydown", function (event) {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    const searchField = document.getElementById("search-field") as HTMLSelectElement;
+
+    const searchValue = document.querySelector("[name=search-field]") as HTMLInputElement;
+    console.log("searchValue", searchValue.value);
+    const statusField = document.getElementById("status-field") as HTMLSelectElement;
+    const statusValue = document.querySelector("[name=status-field]") as HTMLSelectElement;
+    filterTable(searchValue.value, statusValue.value);
+    searchValue.value = "";
+    searchField.guxForceUpdate();
+  }
+});
+
+document.getElementById("status-value").addEventListener("change", function () {
+  const searchValue = (document.querySelector("[name=search-field]") as HTMLInputElement).value;
+  const statusValue = (document.querySelector("[name=status-field]") as HTMLSelectElement).value;
+  filterTable(searchValue, statusValue);
 });
 
 window.addEventListener("click", async function (e) {
-  console.log("Window click", (e));
-  if ((e.target as HTMLElement).id === "delete-button") {
+  console.log("Window click", e);
+
+  if ((e.target as HTMLElement).id === "transfer-queue") {
+    console.log("Transfer Queue button clicked");
+    let selectedQueue = (document.getElementById("listQueues") as HTMLSelectElement).value;
+    console.log("selectedQueue", selectedQueue);
+    try {
+      let rows = document.getElementById("tbody")!.children;
+      let selectedCount = 0;
+      for (const row of rows) {
+        if (
+          row?.attributes[2]?.name == "data-selected-row" &&
+          row?.children[6]?.textContent?.toLowerCase() == "in queue"
+        ) {
+          console.log("row", row);
+          console.log("row id", row?.children[9]?.textContent);
+          selectedCount++;
+        }
+      }
+      console.log("selectedCount", selectedCount);
+      if (selectedCount == 0) {
+        console.log("no in queue rows selected");
+      }
+    } catch (error) {
+      console.error("Error: ", error);
+    }
+  }
+
+  if ((e.target as HTMLElement).id === "transfer-user") {
+    console.log("Transfer User button clicked");
+    let selectedUser = (document.getElementById("listUsers") as HTMLSelectElement).value;
+    console.log("selectedUser", selectedUser);
     try {
       let rows = document.getElementById("tbody")!.children;
       for (const row of rows) {
-        if (row?.attributes[2]?.name == "data-selected-row" && row?.children[6]?.textContent?.toLowerCase() == "in queue") {
+        if (
+          row?.attributes[2]?.name == "data-selected-row" &&
+          row?.children[6]?.textContent?.toLowerCase() == "in queue"
+        ) {
           console.log("row", row);
           console.log("row id", row?.children[9]?.textContent);
         }
@@ -144,14 +203,69 @@ window.addEventListener("click", async function (e) {
     }
   }
 
-  if (e.target.id === "transfer-queue") {
-    console.log("Transfer Queue button clicked");
-    let selectedQueue = (document.getElementById("listQueues") as HTMLSelectElement).value;
-    let selectedUser = (document.getElementById("listUsers") as HTMLSelectElement).value;
-    console.log("selectedQueue", selectedQueue);
-    console.log("selectedUser", selectedUser);
+  if ((e.target as HTMLElement).id === "delete-emails") {
+    console.log("Delete emails button clicked");
+
+
+    document.getElementById("delete-modal")!.showModal();
+  }
+
+  if ((e.target as HTMLElement).id === "delete-email-modal-button") {
+    console.log("Delete Yes button clicked");
+    let rows = document.getElementById("tbody")!.children;
+    for (let i=0; i<rows.length; i++) {
+    
+      const row = rows[i];
+      if (
+        row?.attributes[2]?.name == "data-selected-row" 
+      ) {
+        console.log("row", row);
+        console.log("row id", row?.id);
+        const conversationId = row?.id;
+        const participantId = row.querySelector("td:nth-child(10)")?.textContent
+        console.log("participantId", participantId);
+        if (!participantId) {
+          console.error("Participant ID not found");
+          return;
+        }
+        await disconnectEmail(conversationId, participantId);
+      }
+    }
+    delay(1000);
+    getActiveEmails();
+
+    //@ts-ignore
+    document.getElementById("delete-modal")!.close();
+  }
+
+  if ((e.target as HTMLElement).id === "refresh") {
+    console.log("Refresh button clicked");
+    getActiveEmails();
+  }
+
+  if ((e.target as HTMLElement).id === "search") {
+    console.log("Search button clicked");
+    const searchField = document.getElementById("search-field") as HTMLSelectElement;
+
+    const searchValue = document.querySelector("[name=search-field]") as HTMLInputElement;
+    console.log("searchValue", searchValue.value);
+    const statusField = document.getElementById("status-field") as HTMLSelectElement;
+    statusValue = (document.querySelector("[name=status-field]") as HTMLSelectElement).value;
+    filterTable(searchValue.value, statusValue.value);
+    searchValue.value = "";
+    searchField.guxForceUpdate();
+  }
+
+  if ((e.target as HTMLElement).id === "claim-email") {
+    console.log("Claim emeail button clicked");
+    if (selectedStatus !== "In Queue" || selectesStatus!=="Parked") {
+      console.log("Email is not in queue");
+      return;
+    }
+    claimEmail(selectedConversationId, selectedParticipantId);
   }
 });
+
 async function loadSparkComponents() {
   await registerSparkComponents();
 }
@@ -244,7 +358,7 @@ function extractEmailData(
       const customerParticipant = email.participants?.filter(
         (p) => p.purpose == "customer" || p.purpose == "external"
       )[0];
-      const agentParticipants = email.participants?.filter((p) => p.purpose == "agent");
+      const agentParticipants = email.participants?.filter((p) => (p.purpose == "agent"||p.purpose=="user"));
       const queueParticipants = email.participants?.filter((p) => p.purpose == "acd");
       console.log("agentParticipants", agentParticipants);
       let emailElement = {
@@ -261,7 +375,7 @@ function extractEmailData(
           customerParticipant!.sessions!.length - 1
         ].metrics!.filter((m) => m.name == "nConnected")[0].emitDate,
         lastAgent: findLatestInteractParticipant(agentParticipants) || "",
-        lastACDparticipant: findLatestInteractParticipant(queueParticipants, "id") || "",
+        lastACDparticipant: status=="In Queue"||status=="Alerting"? findLatestInteractParticipant(queueParticipants, "id") || "" : findLatestInteractParticipant(agentParticipants, "id") || "",
       };
       emailListPart.push(emailElement);
     }
@@ -270,53 +384,72 @@ function extractEmailData(
 }
 
 async function processEmailQuery() {
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - 30);
-  try {
-    const body: conversationDetailQuery = {
-      segmentFilters: [
-        {
-          type: "or",
-          predicates: [
-            {
-              type: "dimension",
-              dimension: "mediaType",
-              operator: "matches",
-              value: "email",
-            },
-          ],
+  let data: platformClient.Models.AnalyticsConversationQueryResponse = { conversations: [] };
+  for (let i = 0; i < 3; i++) {
+    let startDate, endDate;
+    if (i == 0) {
+      startDate = new Date();
+      startDate.setDate(startDate.getDate() - 30);
+      endDate = new Date();
+    } else if (i == 1) {
+      startDate = new Date();
+      startDate.setDate(startDate.getDate() - 60);
+      endDate = new Date();
+      endDate.setDate(endDate.getDate() - 30);
+    } else {
+      startDate = new Date();
+      startDate.setDate(startDate.getDate() - 90);
+      endDate = new Date();
+      endDate.setDate(endDate.getDate() - 60);
+    }
+    try {
+      const body: conversationDetailQuery = {
+        segmentFilters: [
+          {
+            type: "or",
+            predicates: [
+              {
+                type: "dimension",
+                dimension: "mediaType",
+                operator: "matches",
+                value: "email",
+              },
+            ],
+          },
+        ],
+        interval: startDate.toISOString() + "/" + endDate.toISOString(),
+        conversationFilters: [
+          {
+            type: "and",
+            predicates: [
+              {
+                type: "dimension",
+                dimension: "conversationEnd",
+                operator: "notExists",
+              },
+              {
+                type: "dimension",
+                dimension: "originatingDirection",
+                operator: "matches",
+                value: "inbound",
+              },
+            ],
+          },
+        ],
+        paging: {
+          pageSize: 100,
+          pageNumber: 1,
         },
-      ],
-      interval: startDate.toISOString() + "/" + new Date().toISOString(),
-      conversationFilters: [
-        {
-          type: "and",
-          predicates: [
-            {
-              type: "dimension",
-              dimension: "conversationEnd",
-              operator: "notExists",
-            },
-            {
-              type: "dimension",
-              dimension: "originatingDirection",
-              operator: "matches",
-              value: "inbound",
-            },
-          ],
-        },
-      ],
-      paging: {
-        pageSize: 100,
-        pageNumber: 1,
-      },
-    };
+      };
 
-    const data = await capi.postAnalyticsConversationsDetailsQuery(body);
-    return data;
-  } catch (error) {
-    console.error("Error: ", error);
+      const periodData = await capi.postAnalyticsConversationsDetailsQuery(body);
+      console.log("periodData", periodData);
+      data.conversations = [...data.conversations!, ...periodData.conversations!];
+    } catch (error) {
+      console.error("Error: ", error);
+    }
   }
+  return data;
 }
 function getEmailsByStatus(
   conversations: platformClient.Models.AnalyticsConversationQueryResponse,
@@ -350,7 +483,10 @@ function getEmailsByStatus(
   });
 }
 
-function findLatestInteractParticipant(data: platformClient.Models.Participant[] | undefined, type?: "name"|"id") {
+function findLatestInteractParticipant(
+  data: platformClient.Models.Participant[] | undefined,
+  type?: "name" | "id"
+) {
   let latestParticipant: string | null = null;
   let latestTimestamp: Date | null = null;
   if (!data) {
@@ -367,7 +503,7 @@ function findLatestInteractParticipant(data: platformClient.Models.Participant[]
             if (type === "id") {
               latestParticipant = participant.participantId;
             } else {
-            latestParticipant = participant.participantName;
+              latestParticipant = participant.participantName;
             }
           }
         }
@@ -376,6 +512,93 @@ function findLatestInteractParticipant(data: platformClient.Models.Participant[]
   });
 
   return latestParticipant;
+}
+
+async function getConversationPreview(conversationId: string) {
+  try {
+    const messages = await capi.getConversationsEmailMessages(conversationId);
+    console.log("messages :", messages);
+    //skipping autoreply if that was the last message in thread
+    const messageId = getFirstShortId(messages);
+    console.log("messageId :", messageId);
+    const messageContent = await capi.getConversationsEmailMessage(conversationId, messageId);
+    console.log("messageContent :", messageContent);
+    let body = "";
+    if (messageContent.htmlBody) {
+      body = messageContent.htmlBody;
+    } else {
+      body = messageContent.textBody;
+    }
+    return body;
+  } catch (error) {
+    console.log(error);
+  }
+}
+
+function getFirstShortId(entities: platformClient.Models.EmailMessagePreviewListing) {
+  for (let entity of entities.entities!) {
+    if (entity.id && entity.id.length < 37) {
+      return entity.id;
+    }
+  }
+  return null; // Return null if no such ID is found
+}
+
+async function claimEmail(conversationId: string, participantId: string) {
+  // if (selectedStatus !== "In Queue") {  
+  //   console.log("Email is not in queue");
+  //   return;
+  // }
+  try {
+    // assigning conversation to app user
+
+    let body = {
+      userId: user.id,
+    };
+    await capi.postConversationsEmailParticipantReplace(conversationId, participantId, body);
+
+    const conversation = await capi.getConversationsEmail(conversationId);
+    console.log("conversation", conversation);
+    if(!user.id) { 
+      console.error("User ID not found");
+      return;
+    }
+    //function for 500ms delay
+    await delay(1000)
+
+    const newParticipantId = getParticipantIdByUserId(conversation, user.id);
+    if (!newParticipantId) {
+      console.error("No participant found for user ID", user.id);
+      return;
+    }
+    console.log("newParticipantId", newParticipantId);
+    let body2 = {
+      state: "connected",
+    };
+    await capi.patchConversationsEmailParticipant(
+      conversationId,
+      newParticipantId,
+      body2
+    );
+    document.getElementById("preview-modal")!.close();
+
+  } catch (error) {
+    console.error("claim email error", error);
+  }
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+
+function getParticipantIdByUserId(conversation: any, userId: string): string | null {
+  for (const participant of conversation.participants) {
+    if (participant.user && participant.user.id === userId) {
+      return participant.id;
+    }
+  }
+  return null; // Return null if no matching participant is found
 }
 
 function populateTableData(emailList: EmailListElement[]) {
@@ -402,7 +625,8 @@ function populateTableData(emailList: EmailListElement[]) {
   document.getElementById("loading")!.style.display = "none";
 }
 
-function addRow(this: any, 
+function addRow(
+  this: any,
   id: string,
   firstMessage: string,
   lastMessage: string,
@@ -443,7 +667,9 @@ function addRow(this: any,
 
   row.id = id;
   row.setAttribute("data-row-id", id);
-  select.innerHTML = "<gux-row-select></gux-row-select>";
+  status == "In Queue" || status == "Alerting" || status == "Parked"
+    ? (select.innerHTML = "<gux-row-select></gux-row-select>")
+    : (select.innerHTML = "<gux-row-select disabled></gux-row-select>");
   // T_originating_direction.innerHTML = originating_direction;
   T_first_message.innerHTML = `${new Intl.DateTimeFormat("en-GB", {
     dateStyle: "short",
@@ -471,16 +697,18 @@ function addRow(this: any,
   T_action.appendChild(T_actionButtonDiv);
   let T_action_viewButton = document.createElement("gux-button");
   T_action_viewButton.setAttribute("accent", "primary");
-  T_action_viewButton.onclick = previewEmail.bind(this, id);
+  T_action_viewButton.onclick = previewEmail.bind(this, id, participantId!, status!);
   let T_action_viewButton_icon = document.createElement("gux-icon");
   T_action_viewButton_icon.setAttribute("icon-name", "fa/eye-regular");
   T_action_viewButton_icon.setAttribute("screenreader-text", "View");
   T_action_viewButton.appendChild(T_action_viewButton_icon);
   T_actionButtonDiv.appendChild(T_action_viewButton);
   let T_action_claimButton = document.createElement("gux-button");
-  T_action_claimButton.setAttribute("accent", "secondary");
+  T_action_claimButton.setAttribute("accent", "tertiary");
+  status == "Interacting" || status == "On Hold" ? T_action_claimButton.setAttribute("disabled", "true") : null;
   T_action_claimButton.onclick = function () {
     console.log("claim button clicked", id);
+    claimEmail(id, participantId!);
   };
   let T_action_claimButton_icon = document.createElement("gux-icon");
   T_action_claimButton_icon.setAttribute("icon-name", "arrow-down");
@@ -537,30 +765,69 @@ function popup(id: string) {
   console.log("popup", id);
 }
 
-async function previewEmail (id:string) {
+async function previewEmail(id: string, participantId: string, status:string) {
+  selectedConversationId = id;
+  selectedParticipantId = participantId;
+  selectedStatus= status;
   console.log("view button clicked", id);
-  document.getElementById("preview-modal-content")!.innerHTML = "aaaaaaa";
+  const emailContent = await getConversationPreview(id);
+  if (!emailContent) {
+    console.error("No email content found");
+    return;
+  }
+  document.getElementById("preview-modal-content")!.innerHTML = emailContent;
   //@ts-expect-error
   document.getElementById("preview-modal")!.showModal();
-};
+}
+
+async function disconnectEmail(conversationId:string, participantId:string) {
+  try {
+    
+  const conversation = await capi.getConversation(conversationId)
+
+const participantObject = conversation.participants.filter((p) => p.id === participantId)[0]
+console.log("participantObject", participantObject)
+      let communicationId = participantObject.emails![0].id
+      let body = {
+        wrapup: {
+          notes: `Email disconnected in Email Preview by ${user.name}`,
+        },
+        state: "disconnected",
+      }
+      if (!communicationId) {
+        console.error("No communication ID found")
+        return
+      }
+      const result = await capi.patchConversationsEmailParticipantCommunication(
+          conversationId,
+          participantId,
+          communicationId,
+          body
+        )
+        console.log("result", result)
+      } catch (error) {
+        console.error("Error: ", error)
+      }
+        
+}
 
 async function getUsers() {
   // TODO - if more then 500 active users in ORG need setup paging
   let users = await uapi.getUsers({
     pageSize: 500,
-    expand: ['presence'],
-    state: 'active',
-  })
+    expand: ["presence"],
+    state: "active",
+  });
   if (!users) {
-    return
+    return;
   }
-  console.log(users)
-  let list = document.getElementById('listUsers')!
+  console.log(users);
+  let list = document.getElementById("listUsers")!;
   for (const user of users.entities!) {
-    let item = document.createElement('gux-option')
-    item.innerText = user.name!
-    item.setAttribute('value', user.id!)
-    list.appendChild(item)
+    let item = document.createElement("gux-option");
+    item.innerText = user.name!;
+    item.setAttribute("value", user.id!);
+    list.appendChild(item);
   }
 }
 
@@ -568,18 +835,42 @@ async function getQueues() {
   // TODO - if more then 500 active users in ORG need setup paging
   let queues = await rapi.getRoutingQueues({
     pageSize: 500,
-  })
+  });
   if (!queues) {
     return;
   }
-  console.log(queues)
-  let list = document.getElementById('listQueues')!
+  console.log(queues);
+  let list = document.getElementById("listQueues")!;
   for (const queue of queues.entities!) {
-    let item = document.createElement('gux-option')
-    item.innerText = queue.name!
-    item.setAttribute('value', queue.id!)
-    list.appendChild(item)
+    let item = document.createElement("gux-option");
+    item.innerText = queue.name!;
+    item.setAttribute("value", queue.id!);
+    list.appendChild(item);
   }
+}
+
+function filterTable(searchValue: string, status: string) {
+  const rows = document.querySelectorAll("#tbody tr");
+  rows.forEach((row) => {
+    const cells = row.querySelectorAll("td");
+    console.log("cells", cells);
+    let match = false;
+    cells.forEach((cell) => {
+      if (cell.textContent?.toLowerCase().includes(searchValue.toLowerCase())) {
+        match = true;
+        console.log("match", match);
+      }
+    });
+    const statusCell = row.querySelector("td:nth-child(7)"); // Assuming the status column is the 7th column
+    if (status && statusCell && statusCell.textContent?.toLowerCase() !== status.toLowerCase()) {
+      match = false;
+    }
+    if (match) {
+      row.style.display = "";
+    } else {
+      row.style.display = "none";
+    }
+  });
 }
 // async function getExternalContactHistory() {
 //   let intervalEnd = new Date();
