@@ -31,97 +31,12 @@
   <body>
     <br />
     <div id="originalView" class="view active">
-      <!-- <gux-button id="refresh" class="btn">
-        
-        <gux-icon id="refresh" icon-name="refresh" decorative></gux-icon>
-      </gux-button> -->
-      <!-- <div class="top-row"> -->
-
-      <!-- <form id="searchForm" class="search-form"> -->
-        <!-- <form onchange="searchByEmail(event)" oninput="searchByEmail(event)" id="searchForm"> -->
-
-        <!-- <fieldset> -->
-          <!-- <gux-form-field-search class="search-form" id="searchField">
-            <input slot="input" type="search" id="searchEmail" />
-            <label slot="label">Search by email</label>
-          </gux-form-field-search> -->
-        <!-- </fieldset> -->
-      <!-- </form> -->
-
-    <!-- </div> -->
-   
-      <!-- <div class="date-select">
-        <gux-button id="home-view"
-        ><gux-icon
-          icon-name="fa/home-regular"
-          screenreader-text="This will be read by a screen reader"
-        ></gux-icon
-      ></gux-button>
-        <gux-button id="move-period-back"
-        ><gux-icon
-          icon-name="chevron-left"
-          screenreader-text="This will be read by a screen reader"
-        ></gux-icon
-      ></gux-button>
-        <gux-form-field-text-like label-position="screenreader">
-          <input slot="input" type="text" name="lp-5" id="search-dates" readonly style="text-align:center" />
-          <label slot="label">Screenreader</label>
-        </gux-form-field-text-like>
-        <gux-button id="move-period-forward"
-        ><gux-icon
-          icon-name="chevron-right"
-          screenreader-text="This will be read by a screen reader"
-        ></gux-icon
-      ></gux-button>
-      </div> -->
-      <!-- <gux-table-toolbar>
-        <div slot="search-and-filter">
-          <gux-form-field-search label-position="screenreader">
-            <input slot="input" type="search" name="a-3" placeholder="Enter search" />
-            <label slot="label">Toolbar Search</label>
-          </gux-form-field-search>
-          <gux-table-toolbar-custom-action>
-            <span slot="text">Filter</span>
-            <gux-icon slot="icon" icon-name="filter" decorative></gux-icon>
-          </gux-table-toolbar-custom-action>
-        </div>
-      
-        <div slot="contextual-actions">
-          
-        </div>
-      
-        <div slot="permanent-actions">
-          <gux-table-toolbar-action action="delete" id="delete-button"></gux-table-toolbar-action>
-        <div class="transfer-block">
-          <gux-dropdown id="dropdownWorkbin" class="drop" filter-type="starts-with" placeholder="Select a Queue">
-            <gux-listbox id="listQueues" aria-label="types"></gux-listbox>
-          </gux-dropdown>
-          <gux-table-toolbar-action action="export"></gux-table-toolbar-action>
-        </div>
-        <div class="transfer-block">
-          <gux-dropdown id="dropdownUser" class="drop" filter-type="starts-with" placeholder="Select a User">
-            <gux-listbox id="listUsers" aria-label="types"></gux-listbox>
-          </gux-dropdown>
-          <gux-table-toolbar-action action="refresh" id="refresh"></gux-table-toolbar-action>
-          </div>  
-        </div> -->
-      
-        <!-- <div slot="menu-actions">
-          <gux-table-toolbar-action action="export"></gux-table-toolbar-action>
-          <gux-table-toolbar-action action="refresh" oninput="notify(event)"></gux-table-toolbar-action>
-        </div>
-      
-        <gux-table-toolbar-custom-action slot="primary-action" accent="primary">
-          <span slot="text">Add</span>
-          <gux-icon slot="icon" icon-name="add" decorative></gux-icon>
-        </gux-table-toolbar-custom-action> -->
-      <!-- </gux-table-toolbar> -->
       <div class="table-toolbar">
         <div class="toolbar-left">
  
           <div class="search-form">
           <gux-form-field-search label-position="screenreader" id="search-field">
-            <input slot="input" type="search" name="search-field" placeholder="Enter search" id="search-value"/>
+            <input slot="input" type="search" name="search-field" placeholder="Seacrh and enter" id="search-value"/>
             <label slot="label">Toolbar Search</label>
           </gux-form-field-search>
           <gux-dropdown id="status-field" style="width:200px;" placeholder="Filter by status">
@@ -135,10 +50,7 @@
             </gux-listbox>
             <!-- <label slot="label">Status</label> -->
           </gux-dropdown>
-          <!-- <gux-button  >
-            <gux-icon id="search" icon-name="search" decorative></gux-icon>
-            <span id="search">Search</span>
-          </gux-button> -->
+
         </div>
           <gux-button  >
             <gux-icon id="refresh" icon-name="refresh" decorative></gux-icon>
@@ -151,7 +63,7 @@
               <gux-listbox id="listQueues" aria-label="types"></gux-listbox>
             </gux-dropdown>
             <gux-button accent="secondary"  >
-              <gux-icon icon-name="delete" decorative id="transfer-queue"></gux-icon>
+              <gux-icon icon-name="fa/arrow-right-to-bracket-regular" decorative id="transfer-queue"></gux-icon>
               <span id="transfer-queue">Transfer to queue</span>
             </gux-button>
           </div>
@@ -160,7 +72,7 @@
               <gux-listbox id="listUsers" aria-label="types"></gux-listbox>
             </gux-dropdown>
             <gux-button accent="secondary"  >
-              <gux-icon icon-name="delete" decorative id="transfer-user"></gux-icon>
+              <gux-icon icon-name="fa/regular-user-circle-arrow-left" decorative id="transfer-user"></gux-icon>
               <span id="transfer-user">Transfer to user</span>
             </gux-button>
             </div>  
@@ -181,32 +93,24 @@
         id="sortable-table"
       >
         <table style="inline-size: 100%; table-layout: auto" slot="data">
-          <!-- <colgroup>
-            <col span="9">
-            <col span="1" style="visibility: collapse">
-          </colgroup> -->
+
           <thead>
             <tr data-row-id="head">
               <th id="row-select"><gux-all-row-select></gux-all-row-select></th>
-              <!-- <th data-column-name="priority" data-cell-numeric aria-sort="ascending">Priority<gux-sort-control /></th> -->
-              <!-- <th data-column-name="originatingDirection" class="size-x" style="width: 80px;">Direction</th> -->
+
 
               <th data-column-name="start-date" class="size-x" aria-sort="ascending">
                 First message<gux-sort-control />
               </th>
-              <th data-column-name="endDate" class="end-column" >LastMessage</th>
+              <th data-column-name="endDate" class="end-column" >LastMessage<gux-sort-control /></th>
               <th data-column-name="from" class="size-l">From</th>
               <th data-column-name="to" class="size-l">To</th>
               <th data-column-name="subject"  class="subject-column">Subject</th>
               <th data-column-name="status" class="status-column">Status</th>
-              <!-- <th data-column-name="routing-state">Routing State</th> -->
-              <!-- <th data-column-name="assigned-to" class="size-x">Assigned To</th> -->
+
               <th data-column-name="last-agent" class="size-l">Last agent</th>
               <th data-column-name="queue" class="size-m">Queue</th>
-              <!-- <th data-column-name="wrapup" class="size-l">WrapUp</th> -->
-              <!-- <th data-column-name="worktype">Worktype</th> -->
-              <!-- <th data-column-name="external-tag" class="size-l">External Tag</th> -->
-              <!-- <th data-column-name="name">Name</th> -->
+
                <th data-column-name="participant">Participant</th>
               <th data-column-name="action" data-cell-action style="text-align: center;">Action</th>
             </tr>
@@ -258,91 +162,66 @@
       </gux-cta-group>
     </gux-modal>
 
-    <!-- <gux-modal id="modal" size="small">
-      <div slot="title">Warning!</div>
-      <div slot="content">
-        You are about to terminate the selected Workitems are you sure you want
-        to do this?
-      </div>
-      <div slot="start-align-buttons">
-        <gux-button-slot accent="primary">
-          <button
-            onclick="terminateWorkItem(document.getElementById('dropdownWorkbin').value)"
-            type="button"
-          >
-            Accept
-          </button>
-        </gux-button-slot>
-      </div>
-      <div slot="end-align-buttons">
-        <gux-button-slot>
-          <button
-            autofocus
-            onclick="document.getElementById('modal').close()"
-            type="button"
-          >
-            Cancel
-          </button>
-        </gux-button-slot>
-      </div>
-    </gux-modal> -->
+
 
     <script>
      
-      
-// function searchByEmail(event){
-//   event.preventDefault();
-//   console.log("event", event);
-// }
+
     </script>
   </body>
   <style
   onload="(function () {
-    function ascending( a, b ) {
-      const row = 
-console.log('a', a.querySelector('td'));
-      if ( getDate(a.querySelector('td').textContent) < getDate(b.querySelector('td').textContent) ){
-        return -1;
-      }
-      if ( a.textContent > b.textContent ){
-        return 1;
-      }
-      return 0;
+    function ascending(a, b, columnIndex) {
+      const aDate = getDate(a.querySelectorAll('td')[columnIndex].textContent);
+      const bDate = getDate(b.querySelectorAll('td')[columnIndex].textContent);
+      return aDate - bDate;
     }
 
-    function getDate(date){
-    const [datePart, timePart] = date.split(',');
-    const [day, month, year] = datePart.split('/').map(Number);
-    const [hours, minutes] = timePart.split(':').map(Number);
-    return new Date(year, month - 1, day, hours, minutes);
+    function getDate(date) {
+      const [datePart, timePart] = date.split(',');
+      const [day, month, year] = datePart.split('/').map(Number);
+      const [hours, minutes] = timePart.split(':').map(Number);
+      return new Date(year, month - 1, day, hours, minutes);
     }
 
-    function shuffle( a, b ) {
+    function shuffle(a, b) {
       return 0.5 - Math.random();
     }
+
     const table = document.querySelector('#sortable-table');
-    
-    table.addEventListener('guxsortchanged',
-    (event) => {
+
+    table.addEventListener('guxsortchanged', (event) => {
       console.log('event', event.detail);
-      const {columnName, sortDirection} = event.detail;
+      const { columnName, sortDirection } = event.detail;
       const columns = Array.from(table.querySelectorAll('thead tr th')).forEach((column) => column.removeAttribute('aria-sort'));
-      const column = table.querySelector(`thead tr th[data-column-name='` + columnName + `']`);
+      const column = table.querySelector(`thead tr th[data-column-name='${columnName}']`);
       console.log('column', column);
       column.setAttribute('aria-sort', sortDirection);
       const tableBody = table.querySelector('tbody');
-      switch (sortDirection) {
-        case 'ascending':
-          [...tableBody.children].sort(ascending).forEach(node=>tableBody.appendChild(node));
+      let columnIndex;
+      switch (columnName) {
+        case 'start-date':
+          columnIndex = 1;
           break;
-        case 'descending':
-          [...tableBody.children].sort(ascending).reverse().forEach(node=>tableBody.appendChild(node));
+        case 'endDate':
+          columnIndex = 2;
           break;
         default:
-          [...tableBody.children].sort(shuffle).forEach(node=>tableBody.appendChild(node));
+          columnIndex = 1;
           break;
       }
-    })
+      switch (sortDirection) {
+        case 'ascending':
+          [...tableBody.children].sort((a, b) => ascending(a, b, columnIndex)).forEach(node => tableBody.appendChild(node));
+          break;
+        case 'descending':
+          [...tableBody.children].sort((a, b) => ascending(a, b, columnIndex)).reverse().forEach(node => tableBody.appendChild(node));
+          break;
+        default:
+          [...tableBody.children].sort(shuffle).forEach(node => tableBody.appendChild(node));
+          break;
+      }
+    });
   })()"
   >
     .view {

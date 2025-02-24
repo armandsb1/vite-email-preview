@@ -30,19 +30,20 @@ if (!gc_region) {
 }
 client.setEnvironment(gc_region);
 
-// const myClientApp = new ClientApp({
-//   pcEnvironment: gc_region,
-// });
+const myClientApp = new ClientApp({
+  pcEnvironment: gc_region,
+});
 
 const uapi = new platformClient.UsersApi();
 const capi = new platformClient.ConversationsApi();
 const rapi = new platformClient.RoutingApi();
+const papi = new platformClient.PresenceApi();
 
-let user: platformClient.Models.UserMe = {};
-let searchValue = "";
-let statusValue = "";
+let user: platformClient.Models.UserMe|null = null;
+// let statusValue = "";
 let selectedConversationId = "";
 let selectedParticipantId = "";
+// @ts-ignore
 let selectedStatus = "";
 // let interval = "";
 // let searchBy = "externalContactId";
@@ -133,22 +134,23 @@ let selectedStatus = "";
 //   getActiveEmails();
 // });
 
-document.getElementById("search-value").addEventListener("keydown", function (event) {
+document.getElementById("search-value")!.addEventListener("keydown", function (event) {
   if (event.key === "Enter") {
     event.preventDefault();
     const searchField = document.getElementById("search-field") as HTMLSelectElement;
 
     const searchValue = document.querySelector("[name=search-field]") as HTMLInputElement;
     console.log("searchValue", searchValue.value);
-    const statusField = document.getElementById("status-field") as HTMLSelectElement;
+    // const statusField = document.getElementById("status-field") as HTMLSelectElement;
     const statusValue = document.querySelector("[name=status-field]") as HTMLSelectElement;
     filterTable(searchValue.value, statusValue.value);
     searchValue.value = "";
+    //@ts-ignore
     searchField.guxForceUpdate();
   }
 });
 
-document.getElementById("status-value").addEventListener("change", function () {
+document.getElementById("status-value")!.addEventListener("change", function () {
   const searchValue = (document.querySelector("[name=search-field]") as HTMLInputElement).value;
   const statusValue = (document.querySelector("[name=status-field]") as HTMLSelectElement).value;
   filterTable(searchValue, statusValue);
@@ -164,19 +166,31 @@ window.addEventListener("click", async function (e) {
     try {
       let rows = document.getElementById("tbody")!.children;
       let selectedCount = 0;
-      for (const row of rows) {
+      for (let i=0; i<rows.length; i++)  {
+        let row = rows[i];
         if (
           row?.attributes[2]?.name == "data-selected-row" &&
           row?.children[6]?.textContent?.toLowerCase() == "in queue"
         ) {
           console.log("row", row);
           console.log("row id", row?.children[9]?.textContent);
+          const participantId = row.querySelector("td:nth-child(10)")?.textContent;
+          console.log("participantId", participantId);
+          if (!participantId) {
+            console.error("Participant ID not found");
+            return;
+          }
+          await transferQueue(row.id, participantId, selectedQueue);
           selectedCount++;
         }
       }
       console.log("selectedCount", selectedCount);
       if (selectedCount == 0) {
         console.log("no in queue rows selected");
+      }
+      else {
+        await delay(2000);
+        getActiveEmails();
       }
     } catch (error) {
       console.error("Error: ", error);
@@ -189,14 +203,32 @@ window.addEventListener("click", async function (e) {
     console.log("selectedUser", selectedUser);
     try {
       let rows = document.getElementById("tbody")!.children;
-      for (const row of rows) {
+      let selectedCount = 0;
+      for (let i=0; i<rows.length; i++)  {
+        let row = rows[i];
         if (
           row?.attributes[2]?.name == "data-selected-row" &&
           row?.children[6]?.textContent?.toLowerCase() == "in queue"
         ) {
           console.log("row", row);
           console.log("row id", row?.children[9]?.textContent);
+          const participantId = row.querySelector("td:nth-child(10)")?.textContent;
+          console.log("participantId", participantId);
+          if (!participantId) {
+            console.error("Participant ID not found");
+            return;
+          }
+          await transferUser(row.id, participantId, selectedUser);
+          selectedCount++;
         }
+      }
+      console.log("selectedCount", selectedCount);
+      if (selectedCount == 0) {
+        console.log("no in queue rows selected");
+      }
+      else {
+        await delay(2000);
+        getActiveEmails();
       }
     } catch (error) {
       console.error("Error: ", error);
@@ -205,33 +237,54 @@ window.addEventListener("click", async function (e) {
 
   if ((e.target as HTMLElement).id === "delete-emails") {
     console.log("Delete emails button clicked");
-
-
+    //@ts-ignore
     document.getElementById("delete-modal")!.showModal();
   }
 
   if ((e.target as HTMLElement).id === "delete-email-modal-button") {
     console.log("Delete Yes button clicked");
     let rows = document.getElementById("tbody")!.children;
-    for (let i=0; i<rows.length; i++) {
-    
+    for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      if (
-        row?.attributes[2]?.name == "data-selected-row" 
-      ) {
+      if (row?.attributes[2]?.name == "data-selected-row") {
         console.log("row", row);
         console.log("row id", row?.id);
         const conversationId = row?.id;
-        const participantId = row.querySelector("td:nth-child(10)")?.textContent
-        console.log("participantId", participantId);
-        if (!participantId) {
-          console.error("Participant ID not found");
-          return;
-        }
-        await disconnectEmail(conversationId, participantId);
+        // const participantId = row.querySelector("td:nth-child(10)")?.textContent;
+        // console.log("participantId", participantId);
+        // if (!participantId) {
+        //   console.error("Participant ID not found");
+        //   return;
+        // }
+        await disconnectEmail(conversationId);
       }
     }
-    delay(1000);
+    await delay(1500);
+    getActiveEmails();
+
+    //@ts-ignore
+    document.getElementById("delete-modal")!.close();
+  }
+
+  if ((e.target as HTMLElement).id === "delete-email-modal-button") {
+    console.log("Delete Yes button clicked");
+    let rows = document.getElementById("tbody")!.children;
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (row?.attributes[2]?.name == "data-selected-row") {
+        console.log("row", row);
+        console.log("row id", row?.id);
+        const conversationId = row?.id;
+        // const participantId = row.querySelector("td:nth-child(10)")?.textContent;
+        // console.log("participantId", participantId);
+        // if (!participantId) {
+        //   console.error("Participant ID not found");
+        //   return;
+        // }
+        await disconnectEmail(conversationId);
+      }
+    }
+    delay(3000);
     getActiveEmails();
 
     //@ts-ignore
@@ -249,20 +302,40 @@ window.addEventListener("click", async function (e) {
 
     const searchValue = document.querySelector("[name=search-field]") as HTMLInputElement;
     console.log("searchValue", searchValue.value);
-    const statusField = document.getElementById("status-field") as HTMLSelectElement;
-    statusValue = (document.querySelector("[name=status-field]") as HTMLSelectElement).value;
+    // const statusField = document.getElementById("status-field") as HTMLSelectElement;
+    let statusValue = document.querySelector("[name=status-field]") as HTMLSelectElement;
     filterTable(searchValue.value, statusValue.value);
     searchValue.value = "";
+    //@ts-ignore
     searchField.guxForceUpdate();
   }
 
   if ((e.target as HTMLElement).id === "claim-email") {
     console.log("Claim emeail button clicked");
-    if (selectedStatus !== "In Queue" || selectesStatus!=="Parked") {
-      console.log("Email is not in queue");
+    // if (selectedStatus !== "In Queue" || selectedStatus !== "Parked") {
+    //   console.log("Email is not in queue");
+    //   return;
+    // }
+    claimEmail(selectedConversationId, selectedParticipantId);
+  }
+});
+
+document.getElementById("tbody")!.addEventListener("dblclick", function (e) {
+  const target = e.target as HTMLElement;
+  const row = target.closest("tr");
+  if (row) {
+    const rowId = row.getAttribute("data-row-id");
+    console.log("Double-clicked row ID:", rowId);
+    const participantId = row.querySelector("td:nth-child(10)")?.textContent;
+    console.log("participantId", participantId);
+    if (!participantId||!rowId) {
+      console.error("Participant ID not found");
       return;
     }
-    claimEmail(selectedConversationId, selectedParticipantId);
+    const status = row.querySelector("td:nth-child(7)")?.textContent;
+    console.log("status", status);
+    previewEmail(rowId, participantId, status!);
+
   }
 });
 
@@ -358,7 +431,9 @@ function extractEmailData(
       const customerParticipant = email.participants?.filter(
         (p) => p.purpose == "customer" || p.purpose == "external"
       )[0];
-      const agentParticipants = email.participants?.filter((p) => (p.purpose == "agent"||p.purpose=="user"));
+      const agentParticipants = email.participants?.filter(
+        (p) => p.purpose == "agent" || p.purpose == "user"
+      );
       const queueParticipants = email.participants?.filter((p) => p.purpose == "acd");
       console.log("agentParticipants", agentParticipants);
       let emailElement = {
@@ -375,7 +450,10 @@ function extractEmailData(
           customerParticipant!.sessions!.length - 1
         ].metrics!.filter((m) => m.name == "nConnected")[0].emitDate,
         lastAgent: findLatestInteractParticipant(agentParticipants) || "",
-        lastACDparticipant: status=="In Queue"||status=="Alerting"? findLatestInteractParticipant(queueParticipants, "id") || "" : findLatestInteractParticipant(agentParticipants, "id") || "",
+        lastACDparticipant:
+          status == "In Queue" || status == "Alerting"
+            ? findLatestInteractParticipant(queueParticipants, "id") || ""
+            : findLatestInteractParticipant(agentParticipants, "id") || "",
       };
       emailListPart.push(emailElement);
     }
@@ -444,6 +522,10 @@ async function processEmailQuery() {
 
       const periodData = await capi.postAnalyticsConversationsDetailsQuery(body);
       console.log("periodData", periodData);
+      if (!periodData.conversations) {
+        console.log(`No data found in loop ${i}`);
+        break;
+      }
       data.conversations = [...data.conversations!, ...periodData.conversations!];
     } catch (error) {
       console.error("Error: ", error);
@@ -514,12 +596,140 @@ function findLatestInteractParticipant(
   return latestParticipant;
 }
 
+export async function transferQueue(
+  conversationId: string,
+  participantId: string,
+  selectedQueueId: string
+) {
+
+  const body = {
+    queueId: selectedQueueId,
+  };
+try {
+  const data = await capi.postConversationsEmailParticipantReplace(
+    conversationId,
+    participantId,
+    body
+  )
+  console.log(
+    "postConversationsEmailParticipantReplace returned successfully.",
+    data
+  );
+} catch (error) {
+  console.log(
+    "There was a failure calling postConversationsEmailParticipantReplace"
+  );
+  console.error(error);
+}
+
+}
+
+export async function transferUser(
+  conversationId: string,
+  participantId: string,
+  selectedUserId: string
+) {
+  try {
+
+    const userStatus = await papi.getUserPresencesPurecloud(selectedUserId)
+    console.log("userStatus", userStatus);
+    
+    if (userStatus.presenceDefinition&&userStatus.presenceDefinition.systemPresence == "Offline") {
+      console.log("User is offline");
+      popUp(Date.now(), 'error', 'User is offline')
+      return;
+    }
+    const body = {
+      userId: selectedUserId,
+      transferType: "Unattended"
+    };
+    let data = await capi.postConversationsEmailParticipantReplace(
+      conversationId,
+      participantId,
+      body
+    );
+    console.log(
+      "postConversationsEmailParticipantReplace returned successfully.",
+      data
+    );
+    //getting active participantId of the transferred conversation
+    // const opts = {
+    //   communicationType: "email",
+    // };
+    // const a = await capi.getConversation(conversationId);
+    // console.log("a", JSON.stringify(a, null, 2));
+    // const b = a.participants.slice().reverse().find(
+    //   (p: any) => p.purpose == "agent" && p.userId == selectedUserId
+    // ).id;
+    // console.log("b", JSON.stringify(b, null, 2));
+    // await delay(1000);
+    // const alertingParticipantId = a.participants.find(p=>p.purpose=="agent"&&p.userId == selectedUserId).id
+    // // const alertingParticipantId = getAlertingParticipantId(a);
+    // console.log("alertingParticipantId", alertingParticipantId);
+
+    // get last alerting participant
+
+    // const data2 = await capi.getConversations(opts);
+    // console.log(
+    //   `getConversations success! data: ${JSON.stringify(data2, null, 2)}`
+    // );
+    // const activeConversations = data2.entities.length;
+    // const lastInteractionParticipants =
+    //   data2.entities[activeConversations - 1].participants;
+    // console.log("lastInteractionParticipants", lastInteractionParticipants);
+    // const participantAgents = lastInteractionParticipants.filter(
+    //   (l: any) => l.purpose == "agent"
+    // );
+    // console.log("participantAgents", participantAgents);
+    // const currentParticipantId =
+    //   participantAgents[participantAgents.length - 1].id;
+
+    // console.log("new participantId", currentParticipantId);
+    // const body2 = {
+    //   state: "connected",
+    // };
+    // await delay(1000);
+    // const data3 = await capi.patchConversationParticipant(
+    //   conversationId,
+    //   alertingParticipantId,
+    //   body2
+    // );
+    // console.log("patchConversationsEmailParticipant returned successfully.");
+
+  } catch (error: any) {
+    // toast.error(error.message);
+    console.log("There was a failure transfering", error);
+  }
+}
+
+// function getAlertingParticipantId(conversation) {
+//   for (const participant of conversation.participants) {
+//     if (participant.purpose === "agent" && participant.emails) {
+//       for (const session of participant.emails) {
+//         if (session.segments) {
+//           for (const segment of session.segments) {
+//             console.log("segment", segment);
+//             if (segment.stype === "Alert" && !segment.hasOwnProperty("endTime")) {
+//               return participant.id;
+//             }
+//           }
+//         }
+//       }
+//     }
+//   }
+//   return null; // Return null if no matching participant is found
+// }
+
 async function getConversationPreview(conversationId: string) {
   try {
     const messages = await capi.getConversationsEmailMessages(conversationId);
     console.log("messages :", messages);
     //skipping autoreply if that was the last message in thread
     const messageId = getFirstShortId(messages);
+    if (!messageId) {
+      console.error("No message ID found");
+      return;
+    }
     console.log("messageId :", messageId);
     const messageContent = await capi.getConversationsEmailMessage(conversationId, messageId);
     console.log("messageContent :", messageContent);
@@ -545,10 +755,14 @@ function getFirstShortId(entities: platformClient.Models.EmailMessagePreviewList
 }
 
 async function claimEmail(conversationId: string, participantId: string) {
-  // if (selectedStatus !== "In Queue") {  
+  // if (selectedStatus !== "In Queue") {
   //   console.log("Email is not in queue");
   //   return;
   // }
+  if (!user) {
+    console.error("User not found");
+    return;
+  }
   try {
     // assigning conversation to app user
 
@@ -559,12 +773,12 @@ async function claimEmail(conversationId: string, participantId: string) {
 
     const conversation = await capi.getConversationsEmail(conversationId);
     console.log("conversation", conversation);
-    if(!user.id) { 
+    if (!user.id) {
       console.error("User ID not found");
       return;
     }
     //function for 500ms delay
-    await delay(1000)
+    await delay(1000);
 
     const newParticipantId = getParticipantIdByUserId(conversation, user.id);
     if (!newParticipantId) {
@@ -575,13 +789,9 @@ async function claimEmail(conversationId: string, participantId: string) {
     let body2 = {
       state: "connected",
     };
-    await capi.patchConversationsEmailParticipant(
-      conversationId,
-      newParticipantId,
-      body2
-    );
+    await capi.patchConversationsEmailParticipant(conversationId, newParticipantId, body2);
+    //@ts-ignore
     document.getElementById("preview-modal")!.close();
-
   } catch (error) {
     console.error("claim email error", error);
   }
@@ -590,7 +800,6 @@ async function claimEmail(conversationId: string, participantId: string) {
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-
 
 function getParticipantIdByUserId(conversation: any, userId: string): string | null {
   for (const participant of conversation.participants) {
@@ -705,7 +914,9 @@ function addRow(
   T_actionButtonDiv.appendChild(T_action_viewButton);
   let T_action_claimButton = document.createElement("gux-button");
   T_action_claimButton.setAttribute("accent", "tertiary");
-  status == "Interacting" || status == "On Hold" ? T_action_claimButton.setAttribute("disabled", "true") : null;
+  status == "Interacting" || status == "On Hold"
+    ? T_action_claimButton.setAttribute("disabled", "true")
+    : null;
   T_action_claimButton.onclick = function () {
     console.log("claim button clicked", id);
     claimEmail(id, participantId!);
@@ -761,54 +972,71 @@ function addRow(
   table!.appendChild(row);
 }
 
-function popup(id: string) {
-  console.log("popup", id);
+function popUp(id:Number, type:"error"|"info"|"success"|undefined, message:string) {
+  let time = id.toString()
+  console.log("type", type);
+  let options = {
+    type: type,
+    id: time,
+    timeout: 3,
+    showCloseButton: true,
+  }
+  myClientApp.alerting.showToastPopup('', message, options)
 }
 
-async function previewEmail(id: string, participantId: string, status:string) {
+async function previewEmail(id: string, participantId: string, status: string) {
   selectedConversationId = id;
   selectedParticipantId = participantId;
-  selectedStatus= status;
+  selectedStatus = status;
   console.log("view button clicked", id);
   const emailContent = await getConversationPreview(id);
   if (!emailContent) {
     console.error("No email content found");
     return;
   }
+  // if (status == "Interacting" || status == "On Hold") {
+  //   currentEmailClaim = "disabled";
+  // } else {
+  //   currentEmailClaim = "";
+  // }
   document.getElementById("preview-modal-content")!.innerHTML = emailContent;
+  // document.getElementById("claim-email")!.setAttribute("disabled", currentEmailClaim);
+  document.getElementById("claim-email")!.setAttribute("disabled", "false") 
+  status == "Interacting" || status == "On Hold"
+  ? document.getElementById("claim-email")!.setAttribute("disabled", "true")  : null;
+
   //@ts-expect-error
   document.getElementById("preview-modal")!.showModal();
 }
 
-async function disconnectEmail(conversationId:string, participantId:string) {
+async function disconnectEmail(conversationId: string) {
   try {
-    
-  const conversation = await capi.getConversation(conversationId)
-
-const participantObject = conversation.participants.filter((p) => p.id === participantId)[0]
-console.log("participantObject", participantObject)
-      let communicationId = participantObject.emails![0].id
-      let body = {
-        wrapup: {
-          notes: `Email disconnected in Email Preview by ${user.name}`,
-        },
-        state: "disconnected",
-      }
-      if (!communicationId) {
-        console.error("No communication ID found")
-        return
-      }
-      const result = await capi.patchConversationsEmailParticipantCommunication(
-          conversationId,
-          participantId,
-          communicationId,
-          body
-        )
-        console.log("result", result)
-      } catch (error) {
-        console.error("Error: ", error)
-      }
-        
+    // const conversation = await capi.getConversation(conversationId);
+    const disconnectedConversation=await capi.postConversationDisconnect(conversationId)
+    console.log("disconnectedConversation",disconnectedConversation)
+    // const participantObject = conversation.participants.filter((p) => p.id === participantId)[0];
+    // console.log("participantObject", participantObject);
+    // let communicationId = participantObject.emails![0].id;
+    // let body = {
+    //   wrapup: {
+    //     notes: `Email disconnected in Email Preview by ${user.name}`,
+    //   },
+    //   state: "disconnected",
+    // };
+    // if (!communicationId) {
+    //   console.error("No communication ID found");
+    //   return;
+    // }
+    // const result = await capi.patchConversationsEmailParticipantCommunication(
+    //   conversationId,
+    //   participantId,
+    //   communicationId,
+    //   body
+    // );
+    // console.log("result", result);
+  } catch (error) {
+    console.error("Error: ", error);
+  }
 }
 
 async function getUsers() {
@@ -866,9 +1094,12 @@ function filterTable(searchValue: string, status: string) {
       match = false;
     }
     if (match) {
-      row.style.display = "";
+      // row.style.display = "";
+      row.setAttribute("style", "display: table-row;");
     } else {
-      row.style.display = "none";
+      // row.style.display = "none";
+      row.setAttribute("style", "display: none;");
+      
     }
   });
 }
