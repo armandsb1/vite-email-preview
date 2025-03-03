@@ -40,11 +40,77 @@ const rapi = new platformClient.RoutingApi();
 const papi = new platformClient.PresenceApi();
 
 let user: platformClient.Models.UserMe|null = null;
-// let statusValue = "";
 let selectedConversationId = "";
 let selectedParticipantId = "";
 // @ts-ignore
 let selectedStatus = "";
+
+// document.getElementById("column-visibility-checklist")!.addEventListener("change", function (event) {
+//   const target = event.target as HTMLInputElement;
+//   console.log("target", target);
+//   const columnName = target.getAttribute("data-column-name");
+//   console.log("columnName", columnName);
+//   const isChecked = target.checked;
+//   toggleColumnVisibility(columnName, isChecked);
+// })
+
+// const sel = document.getElementById("dropdown") as HTMLSelectElement;
+// console.log("sel", sel.children[0].childNodes);
+// // function to get values from multi-select dropdown with option value and checked status
+// const values = Array.from(sel.children).map((child) => {
+//   console.log("child", child);
+//   return { value: child.getAttribute("value"), checked: (child as HTMLOptionElement).selected };  
+// }
+// );
+// console.log("values", values);
+
+
+
+function getSelectedColumnValues() {
+  const selectedOptions = document.querySelectorAll("gux-option-multi.gux-selected");
+  console.log("selectedOptions", selectedOptions);
+  const selectedValues = Array.from(selectedOptions).map(option => option.getAttribute("value"));
+  return selectedValues;
+}
+
+// Example usage
+const selectedValues = getSelectedColumnValues();
+console.log("Selected column values:", selectedValues);
+
+
+function toggleColumnVisibility(columnName: string | null, isVisible: boolean) {
+  if (!columnName) return;
+
+  const headers = document.querySelectorAll(`#sortable-table thead th[data-column-name=${columnName}]`);
+  const columnIndex = Array.from(headers).map(header => Array.from(header.parentElement!.children).indexOf(header));
+
+  const rows = document.querySelectorAll("#tbody tr");
+  rows.forEach(row => {
+    columnIndex.forEach(index => {
+      const cell = row.children[index] as HTMLElement;
+      if (cell) {
+        cell.style.display = isVisible ? "" : "none";
+      }
+    });
+  });
+
+  headers.forEach(header => {
+    // @ts-ignore
+    header.style.display = isVisible ? "" : "none";
+  });
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  const checklistItems = document.querySelectorAll("#column-visibility-checklist input[type=checkbox]");
+  checklistItems.forEach(item => {
+    const target = item as HTMLInputElement;
+    const columnName = target.getAttribute("data-column-name");
+    const isChecked = target.checked;
+    toggleColumnVisibility(columnName, isChecked);
+  });
+});
+
+
 
 document.getElementById("search-value")!.addEventListener("keydown", function (event) {
   if (event.key === "Enter") {
@@ -53,7 +119,6 @@ document.getElementById("search-value")!.addEventListener("keydown", function (e
 
     const searchValue = document.querySelector("[name=search-field]") as HTMLInputElement;
     console.log("searchValue", searchValue.value);
-    // const statusField = document.getElementById("status-field") as HTMLSelectElement;
     const statusValue = document.querySelector("[name=status-field]") as HTMLSelectElement;
     filterTable(searchValue.value, statusValue.value);
     searchValue.value = "";
@@ -71,6 +136,12 @@ document.getElementById("status-value")!.addEventListener("change", function () 
 window.addEventListener("click", async function (e) {
   console.log("Window click", e);
 
+
+  if ((e.target as HTMLElement).id === "column-visibility-setting") {
+    console.log("Column visibility button clicked");
+    
+   
+  }
   if ((e.target as HTMLElement).id === "transfer-queue") {
     console.log("Transfer Queue button clicked");
     let selectedQueue = (document.getElementById("listQueues") as HTMLSelectElement).value;
@@ -106,18 +177,12 @@ window.addEventListener("click", async function (e) {
       let selectedCount = 0;
       for (let i=0; i<rows.length; i++)  {
         let row = rows[i];
-        // console.log("row", row);
         const cells = row.querySelectorAll("td");
-        // console.log("status cell", cells[statusColumnIndex]?.textContent?.toLowerCase())
-        // console.log("row?.attributes[2]?.name", row?.attributes[2]?.name) 
         if (
           row?.attributes[2]?.name == "data-selected-row" &&
           cells[statusColumnIndex]?.textContent?.toLowerCase() == "in queue"
         ) {
-          // console.log("row", row);
-          // console.log("row id", row?.children[9]?.textContent);
           const participantId = cells[participantColumnIndex]?.textContent;
-          // console.log("participantId", participantId);
           if (!participantId) {
             console.error("Participant ID not found");
             return;
@@ -178,8 +243,6 @@ window.addEventListener("click", async function (e) {
           row?.attributes[2]?.name == "data-selected-row" &&
           cells[statusColumnIndex]?.textContent?.toLowerCase() == "in queue"
         ) {
-          // console.log("row", row);
-          // console.log("row id", row?.children[9]?.textContent);
           const participantId = cells[participantColumnIndex]?.textContent;
           console.log("participantId", participantId);
           if (!participantId) {
@@ -249,7 +312,7 @@ window.addEventListener("click", async function (e) {
 
   if ((e.target as HTMLElement).id === "refresh") {
     console.log("Refresh button clicked");
-    getActiveEmails();
+    start();
   }
 
   if ((e.target as HTMLElement).id === "search") {
@@ -762,7 +825,7 @@ async function claimEmail(conversationId: string, participantId: string) {
       console.error("User ID not found");
       return;
     }
-    //function for 500ms delay
+    //function for 1000ms delay
     await delay(1000);
 
     const newParticipantId = getParticipantIdByUserId(conversation, user.id);

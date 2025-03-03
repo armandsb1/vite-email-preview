@@ -31,12 +31,16 @@
   <body>
     <br />
     <div id="originalView" class="view active">
+      <!-- <div id="column-visibility-checklist">
+        <label><input type="checkbox" data-column-name="last-agent" checked> Participant</label>
+        <label><input type="checkbox" data-column-name="status" checked> Status</label>
+      </div> -->
       <div class="table-toolbar">
         <div class="toolbar-left">
  
           <div class="search-form">
           <gux-form-field-search label-position="screenreader" id="search-field">
-            <input slot="input" type="search" name="search-field" placeholder="Seacrh and enter" id="search-value"/>
+            <input slot="input" type="search" name="search-field" placeholder="Search and enter" id="search-value"/>
             <label slot="label">Toolbar Search</label>
           </gux-form-field-search>
           <gux-dropdown id="status-field" style="width:200px;" placeholder="Filter by status">
@@ -81,6 +85,11 @@
             <gux-icon icon-name="delete" decorative id="delete-emails"></gux-icon>
             <span id="delete-emails">Delete</span>
           </gux-button>
+
+          <!-- <gux-context-menu id="default-test-id-1" >
+              <gux-button accent="ghost" onclick="document.getElementById('column-visibility-modal').showModal()">Column visibility</gux-button>
+          </gux-context-menu> -->
+
         </div>
         </div>
    
@@ -102,7 +111,7 @@
               <th data-column-name="start-date" aria-sort="ascending">
                 First message<gux-sort-control />
               </th>
-              <th data-column-name="endDate" >LastMessage<gux-sort-control /></th>
+              <th data-column-name="endDate" aria-sort="ascending">LastMessage<gux-sort-control /></th>
               <th data-column-name="processingTime" >Processing time</th>
               <th data-column-name="from" >From</th>
               <th data-column-name="to" >To</th>
@@ -129,7 +138,35 @@
 
     <!--Loader and modal-->
 
-
+    <gux-modal id="column-visibility-modal" size="small">
+      <div slot="title">Modal Title</div>
+      <div slot="content">
+        <gux-dropdown-multi placeholder="Select visible columns" value = "a,d" id="dropdown">
+          <gux-listbox-multi aria-label="Columns" id="multi-list">
+            <gux-option-multi value="a">First message</gux-option-multi>
+            <gux-option-multi value="b">Last message</gux-option-multi>
+            <gux-option-multi value="c">Processing time</gux-option-multi>
+            <gux-option-multi value="d">From</gux-option-multi>
+            <gux-option-multi value="e">To</gux-option-multi>
+            <gux-option-multi value="f">Subject</gux-option-multi>
+            <gux-option-multi value="g">Status</gux-option-multi>
+            <gux-option-multi value="h">Last agent</gux-option-multi>
+            <gux-option-multi value="i">Queue</gux-option-multi>
+          </gux-listbox-multi>
+        </gux-dropdown-multi>
+      </div>
+      <gux-cta-group slot="footer" align="end">
+        <gux-button slot="primary" onclick="notify(event)">Primary</gux-button>
+          >Secondary</gux-button
+        >
+        <gux-button
+          slot="dismiss"
+          onclick="document.getElementById('column-visibility-modal').close()"
+          >Cancel</gux-button
+        >
+      </gux-cta-group>
+    </gux-modal>
+  </div>
 
     <gux-modal id="preview-modal" size="large">
       <div slot="content" id="preview-modal-content">
