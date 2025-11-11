@@ -171,16 +171,19 @@ window.addEventListener("click", async function (e) {
         console.error("Participant or status column not found");
         return;
       }
-      console.log("participantColumnIndex", participantColumnIndex);
-      console.log("statusColumnIndex", statusColumnIndex);
     
       let selectedCount = 0;
       for (let i=0; i<rows.length; i++)  {
-        let row = rows[i];
-        const cells = row.querySelectorAll("td");
+        let row = rows[i]; 
+       const cells = row.querySelectorAll("td");
+
+        console.log("row", row);
+      console.log("data selected", row?.attributes[2]?.name);
+      console.log("status", cells[statusColumnIndex]?.textContent?.toLowerCase());
+
         if (
           row?.attributes[2]?.name == "data-selected-row" &&
-          cells[statusColumnIndex]?.textContent?.toLowerCase() == "in queue"
+          cells[statusColumnIndex]?.textContent?.toLowerCase() == "in queue" ||cells[statusColumnIndex]?.textContent?.toLowerCase() == "parked"
         ) {
           const participantId = cells[participantColumnIndex]?.textContent;
           if (!participantId) {
@@ -238,6 +241,9 @@ window.addEventListener("click", async function (e) {
       for (let i=0; i<rows.length; i++)  {
         let row = rows[i];
         const cells = row.querySelectorAll("td");
+        console.log("row", row);
+        console.log("data selected", row?.attributes[2]?.name);
+        console.log("status", cells[statusColumnIndex]?.textContent?.toLowerCase());
 
         if (
           row?.attributes[2]?.name == "data-selected-row" &&
@@ -461,6 +467,9 @@ async function getActiveEmails() {
     emailsList.sort(
       (a, b) => new Date(b.lastMessage!).getTime() - new Date(a.lastMessage!).getTime()
     );
+    // const queueOccurences = getQueueOccurrences(emailsList);
+    // console.log("queueOccurences", queueOccurences);
+
     document.getElementById("loading")!.style.display = "none";
 
     populateTableData(emailsList);
@@ -491,6 +500,7 @@ function extractEmailData(
         to: customerParticipant!.sessions![0].addressTo,
         status: status,
         queue: findLatestInteractParticipant(queueParticipants) || "",
+        firstQueue: findFirstInteractParticipant(queueParticipants) || "",
         firstMessage: customerParticipant!.sessions![0].metrics!.filter(
           (m) => m.name == "nConnected"
         )[0].emitDate,
@@ -642,6 +652,37 @@ function findLatestInteractParticipant(
   });
 
   return latestParticipant;
+}
+
+function findFirstInteractParticipant(
+  data: platformClient.Models.Participant[] | undefined,
+  type?: "name" | "id"
+) {
+  let firstParticipant: string | null = null;
+  let firstTimestamp: Date | null = null;
+  if (!data) {
+    return null;
+  }
+  data.forEach((participant: any) => {
+    participant.sessions.forEach((session: any) => {
+      session.segments.forEach((segment: any) => {
+        if (segment.segmentType === "interact") {
+          const segmentStart = new Date(segment.segmentStart);
+
+          if (!firstTimestamp || segmentStart < firstTimestamp) {
+            firstTimestamp = segmentStart;
+            if (type === "id") {
+              firstParticipant = participant.participantId;
+            } else {
+              firstParticipant = participant.participantName;
+            }
+          }
+        }
+      });
+    });
+  });
+
+  return firstParticipant;
 }
 
 export async function transferQueue(
@@ -874,6 +915,7 @@ function populateTableData(emailList: EmailListElement[]) {
       email.to!,
       email.subject!,
       email.status!,
+      email.firstQueue!,
       email.queue!,
       email.lastAgent!,
       email.lastACDparticipant!
@@ -891,6 +933,7 @@ function addRow(
   to: string,
   subject: string,
   status: string,
+  firstQueue: string,
   queue: string,
   lastAgent: string,
   participantId?: string
@@ -905,8 +948,12 @@ function addRow(
   let T_from = document.createElement("td");
   let T_to = document.createElement("td");
   let T_subject = document.createElement("td");
+  T_subject.style.width = "150px";
+  T_subject.style.wordBreak = "break-word";
+
   let T_status = document.createElement("td");
   let T_last_agent = document.createElement("td");
+  let T_first_queue = document.createElement("td");
   let T_queue = document.createElement("td");
   let T_participantId = document.createElement("td");
   let T_action = document.createElement("td");
@@ -962,6 +1009,8 @@ function addRow(
   // T_assigned_to.innerHTML = assigned_to;
   T_last_agent.innerHTML = lastAgent;
   T_queue.innerHTML = `<gux-truncate>${queue}</gux-truncate>`;
+  T_first_queue.innerHTML = `<gux-truncate>${firstQueue}</gux-truncate>`;
+  T_first_queue.style.display = "none";
   T_participantId.textContent = participantId || "";
   T_participantId.style.display = "none";
   //action buttons
@@ -1028,6 +1077,7 @@ function addRow(
   row.appendChild(T_subject);
   row.appendChild(T_status);
   row.appendChild(T_last_agent);
+  row.appendChild(T_first_queue);
   row.appendChild(T_queue);
   // row.appendChild(T_wrapUp);
   // row.appendChild(T_external_tag);
@@ -1191,3 +1241,17 @@ function filterTable(searchValue: string, status: string) {
     }
   });
 }
+
+// function getQueueOccurrences(emailsList:any): { queueName: string; count: number }[] {
+//   const queueCounts: Record<string, number> = {};
+
+//   emailsList.forEach((email:any) => {
+//     const queueName = email.queue || "Unknown"; // Use "Unknown" if queue name is not available
+//     queueCounts[queueName] = (queueCounts[queueName] || 0) + 1;
+//   });
+
+//   return Object.entries(queueCounts).map(([queueName, count]) => ({
+//     queueName,
+//     count
+//   }));
+// }

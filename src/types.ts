@@ -30,6 +30,7 @@ firstMessage: string|undefined;
 lastMessage: string|undefined;
 from: string|undefined;
 lastAgent: string|undefined;
+firstQueue: string|undefined;
 queue: string|undefined;
 status: string|undefined;
 subject: string|undefined;
