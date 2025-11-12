@@ -19,162 +19,282 @@
       href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&family=Urbanist:ital,wght@0,100..900;1,100..900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/src/style.css">
+    <link rel="stylesheet" href="/src/style.css" />
     <script type="module" src="/src/main.ts"></script>
     <style>
-      th[data-column-name="participant"], 
+      th[data-column-name="participant"],
       td[data-column-name="participant"] {
         display: none;
       }
     </style>
   </head>
   <body>
-    <br />
     <div id="originalView" class="view active">
-      <!-- <div id="column-visibility-checklist">
-        <label><input type="checkbox" data-column-name="last-agent" checked> Participant</label>
-        <label><input type="checkbox" data-column-name="status" checked> Status</label>
-      </div> -->
-      <!-- <h3>Donut chart with hover</h3>
-<gux-visualization-beta id="spark-donut"> </gux-visualization-beta> -->
-      <div class="table-toolbar">
-        <div class="toolbar-left">
- 
-          <div class="search-form">
-          <gux-form-field-search label-position="screenreader" id="search-field">
-            <input slot="input" type="search" name="search-field" placeholder="Search and enter" id="search-value"/>
-            <label slot="label">Toolbar Search</label>
-          </gux-form-field-search>
-          <gux-dropdown id="status-field" style="width:200px;" placeholder="Filter by status">
-            <gux-listbox aria-label="input" name="status-field" id="status-value">
-              <gux-option value="">All</gux-option>
-              <gux-option value="In Queue">In Queue</gux-option>
-              <gux-option value="Interacting">Interacting</gux-option>
-              <gux-option value="Parked">Parked</gux-option>
-              <gux-option value="Alerting">Alerting</gux-option>
-              <gux-option value="On Hold">On Hold</gux-option>
-            </gux-listbox>
-            <!-- <label slot="label">Status</label> -->
-          </gux-dropdown>
+      <gux-tabs alignment="center" class="example">
+        <gux-tab-list slot="tab-list">
+          <gux-tab tab-id="8-1"> Active emails </gux-tab>
+          <gux-tab tab-id="8-2"> History search </gux-tab>
+        </gux-tab-list>
+        <gux-tab-panel tab-id="8-1">
+          <div class="table-toolbar">
+            <div class="toolbar-left">
+              <div class="search-form">
+                <gux-form-field-search
+                  label-position="screenreader"
+                  id="search-field"
+                >
+                  <input
+                    slot="input"
+                    type="search"
+                    name="search-field"
+                    placeholder="Search and enter"
+                    id="search-value"
+                  />
+                  <label slot="label">Toolbar Search</label>
+                </gux-form-field-search>
+                <gux-dropdown
+                  id="status-field"
+                  style="width: 200px"
+                  placeholder="Filter by status"
+                >
+                  <gux-listbox
+                    aria-label="input"
+                    name="status-field"
+                    id="status-value"
+                  >
+                    <gux-option value="">All</gux-option>
+                    <gux-option value="In Queue">In Queue</gux-option>
+                    <gux-option value="Interacting">Interacting</gux-option>
+                    <gux-option value="Parked">Parked</gux-option>
+                    <gux-option value="Alerting">Alerting</gux-option>
+                    <gux-option value="On Hold">On Hold</gux-option>
+                  </gux-listbox>
+                </gux-dropdown>
+              </div>
+              <gux-button>
+                <gux-icon
+                  id="refresh"
+                  icon-name="refresh"
+                  decorative
+                ></gux-icon>
+                <span id="refresh">Refresh</span>
+              </gux-button>
+            </div>
+            <div class="toolbar-right">
+              <div class="transfer-block">
+                <gux-dropdown
+                  id="dropdownQueue"
+                  class="drop"
+                  filter-type="starts-with"
+                  placeholder="Select a Queue"
+                >
+                  <gux-listbox id="listQueues" aria-label="types"></gux-listbox>
+                </gux-dropdown>
+                <gux-button accent="secondary">
+                  <gux-icon
+                    icon-name="fa/arrow-right-to-bracket-regular"
+                    decorative
+                    id="transfer-queue"
+                  ></gux-icon>
+                  <span id="transfer-queue">Transfer to queue</span>
+                </gux-button>
+              </div>
+              <div class="transfer-block">
+                <gux-dropdown
+                  id="dropdownUser"
+                  class="drop"
+                  filter-type="starts-with"
+                  placeholder="Select a User"
+                >
+                  <gux-listbox id="listUsers" aria-label="types"></gux-listbox>
+                </gux-dropdown>
+                <gux-button accent="secondary">
+                  <gux-icon
+                    icon-name="fa/regular-user-circle-arrow-left"
+                    decorative
+                    id="transfer-user"
+                  ></gux-icon>
+                  <span id="transfer-user">Transfer to user</span>
+                </gux-button>
+              </div>
 
-        </div>
-          <gux-button  >
-            <gux-icon id="refresh" icon-name="refresh" decorative></gux-icon>
-            <span id="refresh">Refresh</span>
-          </gux-button>
-        </div>
-        <div class="toolbar-right">
-          <div class="transfer-block">
-            <gux-dropdown id="dropdownQueue" class="drop" filter-type="starts-with" placeholder="Select a Queue">
-              <gux-listbox id="listQueues" aria-label="types"></gux-listbox>
-            </gux-dropdown>
-            <gux-button accent="secondary"  >
-              <gux-icon icon-name="fa/arrow-right-to-bracket-regular" decorative id="transfer-queue"></gux-icon>
-              <span id="transfer-queue">Transfer to queue</span>
-            </gux-button>
+              <gux-button accent="danger">
+                <gux-icon
+                  icon-name="delete"
+                  decorative
+                  id="delete-emails"
+                ></gux-icon>
+                <span id="delete-emails">Delete</span>
+              </gux-button>
+
+            </div>
           </div>
-          <div class="transfer-block">
-            <gux-dropdown id="dropdownUser" class="drop" filter-type="starts-with" placeholder="Select a User">
-              <gux-listbox id="listUsers" aria-label="types"></gux-listbox>
+
+          <gux-table object-table selectable-rows id="sortable-table">
+            <table style="inline-size: 100%; table-layout: auto" slot="data">
+              <thead>
+                <tr data-row-id="head">
+                  <th id="row-select">
+                    <gux-all-row-select></gux-all-row-select>
+                  </th>
+
+                  <th data-column-name="start-date" aria-sort="ascending">
+                    First message<gux-sort-control />
+                  </th>
+                  <th data-column-name="endDate" aria-sort="ascending">
+                    LastMessage<gux-sort-control />
+                  </th>
+                  <th data-column-name="processingTime">Processing time</th>
+                  <th data-column-name="from">From</th>
+                  <th data-column-name="to">To</th>
+                  <th
+                    data-column-name="subject"
+                    style="width: 150px; word-wrap: break-word"
+                  >
+                    Subject
+                  </th>
+                  <th data-column-name="status">Status</th>
+
+                  <th data-column-name="last-agent">Last agent</th>
+                  <th data-column-name="first-queue" style="display: none">
+                    First queue
+                  </th>
+                  <th data-column-name="queue">Queue</th>
+
+                  <th data-column-name="participant">Participant</th>
+                  <th
+                    data-column-name="action"
+                    data-cell-action
+                    style="text-align: center"
+                  >
+                    Action
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="tbody"></tbody>
+            </table>
+          </gux-table>
+        </gux-tab-panel>
+        <gux-tab-panel tab-id="8-2">
+          <div style="display: inline-flex">
+            <gux-dropdown
+              filter-type="starts-with"
+              placeholder="UTC-00:00"
+              id="timeZone"
+              style="width: 150px; padding: 8px; display: none;"
+              
+            >
+              <gux-listbox aria-label="Time Zone">
+                <gux-option value="-12:00">UTC-12:00</gux-option
+                ><gux-option value="-11:00">UTC-11:00</gux-option
+                ><gux-option value="-10:00">UTC-10:00</gux-option
+                ><gux-option value="-09:30">UTC-09:30</gux-option
+                ><gux-option value="-09:00">UTC-09:00</gux-option
+                ><gux-option value="-08:00">UTC-08:00</gux-option
+                ><gux-option value="-07:00">UTC-07:00</gux-option
+                ><gux-option value="-06:00">UTC-06:00</gux-option
+                ><gux-option value="-05:00">UTC-05:00</gux-option
+                ><gux-option value="-04:00">UTC-04:00</gux-option
+                ><gux-option value="-03:30">UTC-03:30</gux-option
+                ><gux-option value="-03:00">UTC-03:00</gux-option
+                ><gux-option value="-02:00">UTC-02:00</gux-option
+                ><gux-option value="-01:00">UTC-01:00</gux-option
+                ><gux-option value="-00:00">UTC+00:00</gux-option
+                ><gux-option value="+00:00">UTC+00:00</gux-option
+                ><gux-option value="+01:00">UTC+01:00</gux-option
+                ><gux-option value="+02:00">UTC+02:00</gux-option
+                ><gux-option value="+03:00">UTC+03:00</gux-option
+                ><gux-option value="+03:30">UTC+03:30</gux-option
+                ><gux-option value="+04:00">UTC+04:00</gux-option
+                ><gux-option value="+04:30">UTC+04:30</gux-option
+                ><gux-option value="+05:00">UTC+05:00</gux-option
+                ><gux-option value="+05:30">UTC+05:30</gux-option
+                ><gux-option value="+05:45">UTC+05:45</gux-option
+                ><gux-option value="+06:00">UTC+06:00</gux-option
+                ><gux-option value="+06:30">UTC+06:30</gux-option
+                ><gux-option value="+07:00">UTC+07:00</gux-option
+                ><gux-option value="+08:00">UTC+08:00</gux-option
+                ><gux-option value="+08:45">UTC+08:45</gux-option
+                ><gux-option value="+09:00">UTC+09:00</gux-option
+                ><gux-option value="+09:30">UTC+09:30</gux-option
+                ><gux-option value="+10:00">UTC+10:00</gux-option
+                ><gux-option value="+10:30">UTC+10:30</gux-option
+                ><gux-option value="+11:00">UTC+11:00</gux-option
+                ><gux-option value="+12:00">UTC+12:00</gux-option
+                ><gux-option value="+12:45">UTC+12:45</gux-option
+                ><gux-option value="+13:00">UTC+13:00</gux-option
+                ><gux-option value="+14:00">UTC+14:00</gux-option>
+              </gux-listbox>
             </gux-dropdown>
-            <gux-button accent="secondary"  >
-              <gux-icon icon-name="fa/regular-user-circle-arrow-left" decorative id="transfer-user"></gux-icon>
-              <span id="transfer-user">Transfer to user</span>
-            </gux-button>
-            </div>  
-        
-          <gux-button accent="danger"  >
-            <gux-icon icon-name="delete" decorative id="delete-emails"></gux-icon>
-            <span id="delete-emails">Delete</span>
-          </gux-button>
+            <gux-datepicker
+              id="datepicker"
+              style="padding: 8px"
+              mode="range"
+              value=""
+              number-of-months="2"
+            ></gux-datepicker>
+            <gux-button style="padding: 8px" accent="secondary" id="months12"
+              >12 Months</gux-button
+            >
+            <gux-button style="padding: 8px" accent="secondary" id="months24"
+              >24 Months</gux-button
+            >
+            <gux-button style="padding: 8px" accent="primary" id="getData"
+              >Search</gux-button
+            >
+            <gux-button style="padding: 8px" accent="secondary" id="clearData"
+              >Clear</gux-button
+            >
+          </div>
+          <div style="display: flex">
+            <gux-dropdown
+              id="type"
+              placeholder="Select Type..."
+              style="width: 150px; padding: 8px"
+              value="email"
+            >
+              <gux-listbox aria-label="type">
+                <gux-option value="ani" selected>ANI</gux-option>
+                <gux-option value="externalTag">External Tag</gux-option>
+                <gux-option value="email">Email</gux-option>
+              </gux-listbox>
+            </gux-dropdown>
+            <gux-form-field-search
+              id="value"
+              placeholder="Enter Value..."
+              label-position="beside"
+              style="width: 350px; padding: 8px"
+            >
+              <input id="input" type="search" slot="input" />
+              <label slot="label">Value</label>
+            </gux-form-field-search>
+            <h3 id="tCount" style="margin: auto">Total Count: 0</h3>
+            <h3 id="lakeTime" style="margin: auto"></h3>
+          </div>
+          <div
+            id="spinner"
+            style="justify-self: center; padding: 8px; display: none"
+          >
+            <gux-radial-loading
+              id="loading2"
+              class="loading"
+              screenreader-text="Loading..."
+            ></gux-radial-loading>
+          </div>
+          <div id="tableLocation" style="padding: 8px"></div>
+        </gux-tab-panel>
+      </gux-tabs>
 
-          <!-- <gux-context-menu id="default-test-id-1" >
-              <gux-button accent="ghost" onclick="document.getElementById('column-visibility-modal').showModal()">Column visibility</gux-button>
-          </gux-context-menu> -->
-
-        </div>
-        </div>
-   
-
-      </div>
-      <gux-table
-        object-table
-        selectable-rows
-
-        id="sortable-table"
-      >
-        <table style="inline-size: 100%; table-layout: auto" slot="data">
-
-          <thead>
-            <tr data-row-id="head">
-              <th id="row-select"><gux-all-row-select></gux-all-row-select></th>
-
-
-              <th data-column-name="start-date" aria-sort="ascending">
-                First message<gux-sort-control />
-              </th>
-              <th data-column-name="endDate" aria-sort="ascending">LastMessage<gux-sort-control /></th>
-              <th data-column-name="processingTime" >Processing time</th>
-              <th data-column-name="from" >From</th>
-              <th data-column-name="to" >To</th>
-             <th data-column-name="subject" style="width: 150px; word-wrap: break-word">Subject</th>
-              <th data-column-name="status">Status</th>
-
-              <th data-column-name="last-agent" >Last agent</th>
-              <th data-column-name="first-queue" style="display: none">First queue</th>
-              <th data-column-name="queue">Queue</th>
-
-               <th data-column-name="participant">Participant</th>
-              <th data-column-name="action" data-cell-action style="text-align: center;">Action</th>
-            </tr>
-          </thead>
-          <tbody id="tbody"></tbody>
-          
-        </table>
-      </gux-table>
-
-      <gux-radial-loading id="loading" class="loading" screenreader-text="Loading..."></gux-radial-loading>
-
+      <gux-radial-loading
+        id="loading"
+        class="loading"
+        screenreader-text="Loading..."
+      ></gux-radial-loading>
     </div>
-  </div>
 
-
-    <!--Loader and modal-->
-
-    <gux-modal id="column-visibility-modal" size="small">
-      <div slot="title">Modal Title</div>
-      <div slot="content">
-        <gux-dropdown-multi placeholder="Select visible columns" value = "a,d" id="dropdown">
-          <gux-listbox-multi aria-label="Columns" id="multi-list">
-            <gux-option-multi value="a">First message</gux-option-multi>
-            <gux-option-multi value="b">Last message</gux-option-multi>
-            <gux-option-multi value="c">Processing time</gux-option-multi>
-            <gux-option-multi value="d">From</gux-option-multi>
-            <gux-option-multi value="e">To</gux-option-multi>
-            <gux-option-multi value="f">Subject</gux-option-multi>
-            <gux-option-multi value="g">Status</gux-option-multi>
-            <gux-option-multi value="h">Last agent</gux-option-multi>
-            <gux-option-multi value="i">Queue</gux-option-multi>
-          </gux-listbox-multi>
-        </gux-dropdown-multi>
-      </div>
-      <gux-cta-group slot="footer" align="end">
-        <gux-button slot="primary" onclick="notify(event)">Primary</gux-button>
-          >Secondary</gux-button
-        >
-        <gux-button
-          slot="dismiss"
-          onclick="document.getElementById('column-visibility-modal').close()"
-          >Cancel</gux-button
-        >
-      </gux-cta-group>
-    </gux-modal>
-  </div>
 
     <gux-modal id="preview-modal" size="large">
-      <div slot="content" id="preview-modal-content">
-    
-      </div>
+      <div slot="content" id="preview-modal-content"></div>
       <gux-cta-group slot="footer" align="end">
         <gux-button slot="primary" id="claim-email" autofocus
           >Claim email</gux-button
@@ -203,84 +323,10 @@
       </gux-cta-group>
     </gux-modal>
 
-
-
-    <script>
-     
-
-    </script>
+    <script></script>
   </body>
   <style
-  onload="(function () {
-
-// const setChartExample = (visualizationSpec, chartId) => {
-//       const element = document.querySelector(chartId);
-//       console.log('chart element', element);
-//       element.visualizationSpec = visualizationSpec;
-
-//     }
-// const visualizationSpecSparkDonut = {
-//       $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
-//       'data': {
-//             'values': [
-//               {'category': 'a', 'value': 4},
-//               {'category': 'b', 'value': 6},
-//               {'category': 'c', 'value': 10},
-//               {'category': 'd', 'value': 3},
-//               {'category': 'e', 'value': 7}
-//             ]
-//           },
-//       config: {
-//         font: 'Noto Sans',
-//         autosize: 'fit',
-//         axis: {
-//           ticks: false,
-//           titlePadding: 8,
-//           titleFontSize: '12',
-//           titleFontWeight: '700',
-//           labelColor: '#1B2C48',
-//           labelFontWeight: '400',
-//           labelFontSize: '12',
-//           labelPadding: '8',
-//           domainColor:'#A3A7B0',
-//           gridColor: '#F2F2F3'
-//         },
-//         axisX: {
-//           labelAngle: 0
-//         },
-//         legend: {
-//           symbolType: 'circle',
-//           title: null
-//         },
-//         line: {
-//           stroke: '#0D7482',
-//         }
-//       },
-//       encoding: {
-//           theta: {'field': 'value', 'type': 'quantitative', 'stack': true},
-//           color: {'field': 'category', 'type': 'nominal', scale: {range: ['#0D7482', '#5798D9', '#CDACFF', '#89387B', '#FF5C77']}},
-//           fillOpacity: {
-//             condition: { param: 'hover', value: 1},
-//             value: 0.25
-//           },
-//       },
-//       layer: [
-//         {
-//           mark: {'type': 'arc', 'outerRadius': 80, 'innerRadius': 60, stroke: '#fff', tooltip: true},
-//           params: [{
-//             name: 'hover',
-//             select: {
-//               type: 'point', on: 'pointerover',
-//               fields: ['category'],
-//             },
-//             bind: { legend: 'mouseover'}
-//         }],
-//         }
-//       ]
-//     };
-
-//     setChartExample(visualizationSpecSparkDonut, '#spark-donut'); 
-
+    onload="(function () {
 
     function ascending(a, b, columnIndex) {
       const aDate = getDate(a.querySelectorAll('td')[columnIndex].textContent);

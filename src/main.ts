@@ -11,6 +11,7 @@ let gc_region = url.searchParams.get("gc_region");
 let gc_clientId = url.searchParams.get("gc_clientId");
 let gc_redirectUrl = url.searchParams.get("gc_redirectUrl");
 let gc_conversationId = url.searchParams.get("gc_conversationId");
+let csvRows: any[] = [];
 
 gc_region
   ? sessionStorage.setItem("gc_region", gc_region)
@@ -39,7 +40,7 @@ const capi = new platformClient.ConversationsApi();
 const rapi = new platformClient.RoutingApi();
 const papi = new platformClient.PresenceApi();
 
-let user: platformClient.Models.UserMe|null = null;
+let user: platformClient.Models.UserMe | null = null;
 let selectedConversationId = "";
 let selectedParticipantId = "";
 // @ts-ignore
@@ -59,17 +60,19 @@ let selectedStatus = "";
 // // function to get values from multi-select dropdown with option value and checked status
 // const values = Array.from(sel.children).map((child) => {
 //   console.log("child", child);
-//   return { value: child.getAttribute("value"), checked: (child as HTMLOptionElement).selected };  
+//   return { value: child.getAttribute("value"), checked: (child as HTMLOptionElement).selected };
 // }
 // );
 // console.log("values", values);
 
-
-
 function getSelectedColumnValues() {
-  const selectedOptions = document.querySelectorAll("gux-option-multi.gux-selected");
+  const selectedOptions = document.querySelectorAll(
+    "gux-option-multi.gux-selected"
+  );
   console.log("selectedOptions", selectedOptions);
-  const selectedValues = Array.from(selectedOptions).map(option => option.getAttribute("value"));
+  const selectedValues = Array.from(selectedOptions).map((option) =>
+    option.getAttribute("value")
+  );
   return selectedValues;
 }
 
@@ -77,16 +80,19 @@ function getSelectedColumnValues() {
 const selectedValues = getSelectedColumnValues();
 console.log("Selected column values:", selectedValues);
 
-
 function toggleColumnVisibility(columnName: string | null, isVisible: boolean) {
   if (!columnName) return;
 
-  const headers = document.querySelectorAll(`#sortable-table thead th[data-column-name=${columnName}]`);
-  const columnIndex = Array.from(headers).map(header => Array.from(header.parentElement!.children).indexOf(header));
+  const headers = document.querySelectorAll(
+    `#sortable-table thead th[data-column-name=${columnName}]`
+  );
+  const columnIndex = Array.from(headers).map((header) =>
+    Array.from(header.parentElement!.children).indexOf(header)
+  );
 
   const rows = document.querySelectorAll("#tbody tr");
-  rows.forEach(row => {
-    columnIndex.forEach(index => {
+  rows.forEach((row) => {
+    columnIndex.forEach((index) => {
       const cell = row.children[index] as HTMLElement;
       if (cell) {
         cell.style.display = isVisible ? "" : "none";
@@ -94,15 +100,17 @@ function toggleColumnVisibility(columnName: string | null, isVisible: boolean) {
     });
   });
 
-  headers.forEach(header => {
+  headers.forEach((header) => {
     // @ts-ignore
     header.style.display = isVisible ? "" : "none";
   });
 }
 
 document.addEventListener("DOMContentLoaded", function () {
-  const checklistItems = document.querySelectorAll("#column-visibility-checklist input[type=checkbox]");
-  checklistItems.forEach(item => {
+  const checklistItems = document.querySelectorAll(
+    "#column-visibility-checklist input[type=checkbox]"
+  );
+  checklistItems.forEach((item) => {
     const target = item as HTMLInputElement;
     const columnName = target.getAttribute("data-column-name");
     const isChecked = target.checked;
@@ -110,50 +118,77 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 });
 
+document
+  .getElementById("search-value")!
+  .addEventListener("keydown", function (event) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const searchField = document.getElementById(
+        "search-field"
+      ) as HTMLSelectElement;
 
+      const searchValue = document.querySelector(
+        "[name=search-field]"
+      ) as HTMLInputElement;
+      console.log("searchValue", searchValue.value);
+      const statusValue = document.querySelector(
+        "[name=status-field]"
+      ) as HTMLSelectElement;
+      filterTable(searchValue.value, statusValue.value);
+      searchValue.value = "";
+      //@ts-ignore
+      searchField.guxForceUpdate();
+    }
+  });
 
-document.getElementById("search-value")!.addEventListener("keydown", function (event) {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    const searchField = document.getElementById("search-field") as HTMLSelectElement;
+document
+  .getElementById("status-value")!
+  .addEventListener("change", function () {
+    const searchValue = (
+      document.querySelector("[name=search-field]") as HTMLInputElement
+    ).value;
+    const statusValue = (
+      document.querySelector("[name=status-field]") as HTMLSelectElement
+    ).value;
+    filterTable(searchValue, statusValue);
+  });
 
-    const searchValue = document.querySelector("[name=search-field]") as HTMLInputElement;
-    console.log("searchValue", searchValue.value);
-    const statusValue = document.querySelector("[name=status-field]") as HTMLSelectElement;
-    filterTable(searchValue.value, statusValue.value);
-    searchValue.value = "";
-    //@ts-ignore
-    searchField.guxForceUpdate();
-  }
+document.getElementById("months12")!.addEventListener("click", function () {
+  months12();
 });
-
-document.getElementById("status-value")!.addEventListener("change", function () {
-  const searchValue = (document.querySelector("[name=search-field]") as HTMLInputElement).value;
-  const statusValue = (document.querySelector("[name=status-field]") as HTMLSelectElement).value;
-  filterTable(searchValue, statusValue);
+document.getElementById("months24")!.addEventListener("click", function () {
+  months24();
+});
+document.getElementById("getData")!.addEventListener("click", function () {
+  getData();
+});
+document.getElementById("months12")!.addEventListener("click", function () {
+  months12();
+});
+document.getElementById("clearData")!.addEventListener("click", function () {
+  clearData();
 });
 
 window.addEventListener("click", async function (e) {
   console.log("Window click", e);
 
-
   if ((e.target as HTMLElement).id === "column-visibility-setting") {
     console.log("Column visibility button clicked");
-    
-   
   }
   if ((e.target as HTMLElement).id === "transfer-queue") {
     console.log("Transfer Queue button clicked");
-    let selectedQueue = (document.getElementById("listQueues") as HTMLSelectElement).value;
+    let selectedQueue = (
+      document.getElementById("listQueues") as HTMLSelectElement
+    ).value;
     console.log("selectedQueue", selectedQueue);
-    
+
     try {
       let rows = document.getElementById("tbody")!.children;
-      
+
       const headers = document.querySelectorAll("#sortable-table thead th");
       let participantColumnIndex = -1;
       let statusColumnIndex = -1;
-    
+
       // Find the index of the "Status" column
       headers.forEach((header, index) => {
         if (header.getAttribute("data-column-name") === "participant") {
@@ -166,24 +201,29 @@ window.addEventListener("click", async function (e) {
           statusColumnIndex = index;
         }
       });
-    
+
       if (participantColumnIndex === -1 || statusColumnIndex === -1) {
         console.error("Participant or status column not found");
         return;
       }
-    
+
       let selectedCount = 0;
-      for (let i=0; i<rows.length; i++)  {
-        let row = rows[i]; 
-       const cells = row.querySelectorAll("td");
+      for (let i = 0; i < rows.length; i++) {
+        let row = rows[i];
+        const cells = row.querySelectorAll("td");
 
         console.log("row", row);
-      console.log("data selected", row?.attributes[2]?.name);
-      console.log("status", cells[statusColumnIndex]?.textContent?.toLowerCase());
+        console.log("data selected", row?.attributes[2]?.name);
+        console.log(
+          "status",
+          cells[statusColumnIndex]?.textContent?.toLowerCase()
+        );
 
         if (
-          row?.attributes[2]?.name == "data-selected-row" &&
-          cells[statusColumnIndex]?.textContent?.toLowerCase() == "in queue" ||cells[statusColumnIndex]?.textContent?.toLowerCase() == "parked"
+          (row?.attributes[2]?.name == "data-selected-row" &&
+            cells[statusColumnIndex]?.textContent?.toLowerCase() ==
+              "in queue") ||
+          cells[statusColumnIndex]?.textContent?.toLowerCase() == "parked"
         ) {
           const participantId = cells[participantColumnIndex]?.textContent;
           if (!participantId) {
@@ -197,8 +237,7 @@ window.addEventListener("click", async function (e) {
       console.log("selectedCount", selectedCount);
       if (selectedCount == 0) {
         console.log("no in queue rows selected");
-      }
-      else {
+      } else {
         await delay(2000);
         getActiveEmails();
       }
@@ -209,15 +248,17 @@ window.addEventListener("click", async function (e) {
 
   if ((e.target as HTMLElement).id === "transfer-user") {
     console.log("Transfer User button clicked");
-    let selectedUser = (document.getElementById("listUsers") as HTMLSelectElement).value;
+    let selectedUser = (
+      document.getElementById("listUsers") as HTMLSelectElement
+    ).value;
     console.log("selectedUser", selectedUser);
     try {
       let rows = document.getElementById("tbody")!.children;
-      
+
       const headers = document.querySelectorAll("#sortable-table thead th");
       let participantColumnIndex = -1;
       let statusColumnIndex = -1;
-    
+
       // Find the index of the "Status" column
       headers.forEach((header, index) => {
         if (header.getAttribute("data-column-name") === "participant") {
@@ -230,7 +271,7 @@ window.addEventListener("click", async function (e) {
           statusColumnIndex = index;
         }
       });
-    
+
       if (participantColumnIndex === -1 || statusColumnIndex === -1) {
         console.error("Participant or status column not found");
         return;
@@ -238,12 +279,15 @@ window.addEventListener("click", async function (e) {
       console.log("participantColumnIndex", participantColumnIndex);
       console.log("statusColumnIndex", statusColumnIndex);
       let selectedCount = 0;
-      for (let i=0; i<rows.length; i++)  {
+      for (let i = 0; i < rows.length; i++) {
         let row = rows[i];
         const cells = row.querySelectorAll("td");
         console.log("row", row);
         console.log("data selected", row?.attributes[2]?.name);
-        console.log("status", cells[statusColumnIndex]?.textContent?.toLowerCase());
+        console.log(
+          "status",
+          cells[statusColumnIndex]?.textContent?.toLowerCase()
+        );
 
         if (
           row?.attributes[2]?.name == "data-selected-row" &&
@@ -262,8 +306,7 @@ window.addEventListener("click", async function (e) {
       console.log("selectedCount", selectedCount);
       if (selectedCount == 0) {
         console.log("no in queue rows selected");
-      }
-      else {
+      } else {
         await delay(2000);
         getActiveEmails();
       }
@@ -323,12 +366,18 @@ window.addEventListener("click", async function (e) {
 
   if ((e.target as HTMLElement).id === "search") {
     console.log("Search button clicked");
-    const searchField = document.getElementById("search-field") as HTMLSelectElement;
+    const searchField = document.getElementById(
+      "search-field"
+    ) as HTMLSelectElement;
 
-    const searchValue = document.querySelector("[name=search-field]") as HTMLInputElement;
+    const searchValue = document.querySelector(
+      "[name=search-field]"
+    ) as HTMLInputElement;
     console.log("searchValue", searchValue.value);
     // const statusField = document.getElementById("status-field") as HTMLSelectElement;
-    let statusValue = document.querySelector("[name=status-field]") as HTMLSelectElement;
+    let statusValue = document.querySelector(
+      "[name=status-field]"
+    ) as HTMLSelectElement;
     filterTable(searchValue.value, statusValue.value);
     searchValue.value = "";
     //@ts-ignore
@@ -375,13 +424,12 @@ document.getElementById("tbody")!.addEventListener("dblclick", function (e) {
   if (row) {
     const cells = row.querySelectorAll("td");
 
-
     const rowId = row.getAttribute("data-row-id");
     console.log("Double-clicked row ID:", rowId);
     const participantId = cells[participantColumnIndex]?.textContent;
 
     console.log("participantId", participantId);
-    if (!participantId||!rowId) {
+    if (!participantId || !rowId) {
       console.error("Participant ID not found");
       return;
     }
@@ -389,7 +437,6 @@ document.getElementById("tbody")!.addEventListener("dblclick", function (e) {
 
     console.log("status", status);
     previewEmail(rowId, participantId, status!);
-
   }
 });
 
@@ -420,6 +467,9 @@ async function start() {
     getUsers();
     getQueues();
     getActiveEmails();
+    getUTCOffset();
+    getLakeTime();
+    months12();
   } catch (err) {
     console.log("Error: ", err);
   }
@@ -443,16 +493,34 @@ async function getActiveEmails() {
     let emailsList: EmailListElement[] = [];
     const queueEmails = getEmailsByStatus(conversations, "acd", "interact");
     const queueEmailsData = extractEmailData(queueEmails, "In Queue");
-    const interactingEmails = getEmailsByStatus(conversations, "agent", "interact", "user");
-    const interactingEmailsData = extractEmailData(interactingEmails, "Interacting");
+    const interactingEmails = getEmailsByStatus(
+      conversations,
+      "agent",
+      "interact",
+      "user"
+    );
+    const interactingEmailsData = extractEmailData(
+      interactingEmails,
+      "Interacting"
+    );
     // console.log("interactingEmails", interactingEmails);
-    const parkedEmails = getEmailsByStatus(conversations, "agent", "parked", "user");
+    const parkedEmails = getEmailsByStatus(
+      conversations,
+      "agent",
+      "parked",
+      "user"
+    );
     const parkedEmailsData = extractEmailData(parkedEmails, "Parked");
     console.log("parkedEmails", parkedEmails);
     const alertingEmails = getEmailsByStatus(conversations, "agent", "alert");
     const alertingEmailsData = extractEmailData(alertingEmails, "Alerting");
     // console.log("alertingEmails", alertingEmails);
-    const heldEmails = getEmailsByStatus(conversations, "agent", "hold", "user");
+    const heldEmails = getEmailsByStatus(
+      conversations,
+      "agent",
+      "hold",
+      "user"
+    );
     const heldEmailsData = extractEmailData(heldEmails, "On Hold");
     // console.log("heldEmails", heldEmails);
     emailsList = [
@@ -465,7 +533,8 @@ async function getActiveEmails() {
     ];
     console.log("emailsList", emailsList);
     emailsList.sort(
-      (a, b) => new Date(b.lastMessage!).getTime() - new Date(a.lastMessage!).getTime()
+      (a, b) =>
+        new Date(b.lastMessage!).getTime() - new Date(a.lastMessage!).getTime()
     );
     // const queueOccurences = getQueueOccurrences(emailsList);
     // console.log("queueOccurences", queueOccurences);
@@ -479,7 +548,9 @@ async function getActiveEmails() {
 }
 
 function extractEmailData(
-  emails: platformClient.Models.AnalyticsConversationWithoutAttributes[] | undefined,
+  emails:
+    | platformClient.Models.AnalyticsConversationWithoutAttributes[]
+    | undefined,
   status: string
 ) {
   let emailListPart = [];
@@ -491,8 +562,10 @@ function extractEmailData(
       const agentParticipants = email.participants?.filter(
         (p) => p.purpose == "agent" || p.purpose == "user"
       );
-      const queueParticipants = email.participants?.filter((p) => p.purpose == "acd");
-      console.log("agentParticipants", agentParticipants);
+      const queueParticipants = email.participants?.filter(
+        (p) => p.purpose == "acd"
+      );
+      // console.log("agentParticipants", agentParticipants);
       let emailElement = {
         conversationId: email.conversationId,
         subject: customerParticipant!.sessions![0].segments![0].subject || "",
@@ -520,7 +593,9 @@ function extractEmailData(
 }
 
 async function processEmailQuery() {
-  let data: platformClient.Models.AnalyticsConversationQueryResponse = { conversations: [] };
+  let data: platformClient.Models.AnalyticsConversationQueryResponse = {
+    conversations: [],
+  };
   for (let i = 0; i < 3; i++) {
     let startDate, endDate;
     if (i == 0) {
@@ -578,13 +653,18 @@ async function processEmailQuery() {
         },
       };
 
-      const periodData = await capi.postAnalyticsConversationsDetailsQuery(body);
-      console.log("periodData", periodData);
+      const periodData = await capi.postAnalyticsConversationsDetailsQuery(
+        body
+      );
+      // console.log("periodData", periodData);
       if (!periodData.conversations) {
         console.log(`No data found in loop ${i}`);
         break;
       }
-      data.conversations = [...data.conversations!, ...periodData.conversations!];
+      data.conversations = [
+        ...data.conversations!,
+        ...periodData.conversations!,
+      ];
     } catch (error) {
       console.error("Error: ", error);
     }
@@ -615,7 +695,10 @@ function getEmailsByStatus(
             return false;
           }
           return session.segments.some((segment) => {
-            return segment.segmentType === segmentType && !segment.hasOwnProperty("segmentEnd");
+            return (
+              segment.segmentType === segmentType &&
+              !segment.hasOwnProperty("segmentEnd")
+            );
           });
         })
       );
@@ -690,27 +773,25 @@ export async function transferQueue(
   participantId: string,
   selectedQueueId: string
 ) {
-
   const body = {
     queueId: selectedQueueId,
   };
-try {
-  const data = await capi.postConversationsEmailParticipantReplace(
-    conversationId,
-    participantId,
-    body
-  )
-  console.log(
-    "postConversationsEmailParticipantReplace returned successfully.",
-    data
-  );
-} catch (error) {
-  console.log(
-    "There was a failure calling postConversationsEmailParticipantReplace"
-  );
-  console.error(error);
-}
-
+  try {
+    const data = await capi.postConversationsEmailParticipantReplace(
+      conversationId,
+      participantId,
+      body
+    );
+    console.log(
+      "postConversationsEmailParticipantReplace returned successfully.",
+      data
+    );
+  } catch (error) {
+    console.log(
+      "There was a failure calling postConversationsEmailParticipantReplace"
+    );
+    console.error(error);
+  }
 }
 
 export async function transferUser(
@@ -719,18 +800,20 @@ export async function transferUser(
   selectedUserId: string
 ) {
   try {
-
-    const userStatus = await papi.getUserPresencesPurecloud(selectedUserId)
+    const userStatus = await papi.getUserPresencesPurecloud(selectedUserId);
     console.log("userStatus", userStatus);
-    
-    if (userStatus.presenceDefinition&&userStatus.presenceDefinition.systemPresence == "Offline") {
+
+    if (
+      userStatus.presenceDefinition &&
+      userStatus.presenceDefinition.systemPresence == "Offline"
+    ) {
       console.log("User is offline");
-      popUp(Date.now(), 'error', 'User is offline')
+      popUp(Date.now(), "error", "User is offline");
       return;
     }
     const body = {
       userId: selectedUserId,
-      transferType: "Unattended"
+      transferType: "Unattended",
     };
     let data = await capi.postConversationsEmailParticipantReplace(
       conversationId,
@@ -784,7 +867,6 @@ export async function transferUser(
     //   body2
     // );
     // console.log("patchConversationsEmailParticipant returned successfully.");
-
   } catch (error: any) {
     // toast.error(error.message);
     console.log("There was a failure transfering", error);
@@ -810,6 +892,7 @@ export async function transferUser(
 // }
 
 async function getConversationPreview(conversationId: string) {
+  console.log("getConversationPreview conversationId", conversationId);
   try {
     const messages = await capi.getConversationsEmailMessages(conversationId);
     console.log("messages :", messages);
@@ -820,7 +903,10 @@ async function getConversationPreview(conversationId: string) {
       return;
     }
     console.log("messageId :", messageId);
-    const messageContent = await capi.getConversationsEmailMessage(conversationId, messageId);
+    const messageContent = await capi.getConversationsEmailMessage(
+      conversationId,
+      messageId
+    );
     console.log("messageContent :", messageContent);
     let body = "";
     if (messageContent.htmlBody) {
@@ -834,7 +920,9 @@ async function getConversationPreview(conversationId: string) {
   }
 }
 
-function getFirstShortId(entities: platformClient.Models.EmailMessagePreviewListing) {
+function getFirstShortId(
+  entities: platformClient.Models.EmailMessagePreviewListing
+) {
   for (let entity of entities.entities!) {
     if (entity.id && entity.id.length < 37) {
       return entity.id;
@@ -858,7 +946,11 @@ async function claimEmail(conversationId: string, participantId: string) {
     let body = {
       userId: user.id,
     };
-    await capi.postConversationsEmailParticipantReplace(conversationId, participantId, body);
+    await capi.postConversationsEmailParticipantReplace(
+      conversationId,
+      participantId,
+      body
+    );
 
     const conversation = await capi.getConversationsEmail(conversationId);
     console.log("conversation", conversation);
@@ -874,11 +966,15 @@ async function claimEmail(conversationId: string, participantId: string) {
       console.error("No participant found for user ID", user.id);
       return;
     }
-    console.log("newParticipantId", newParticipantId);
+    // console.log("newParticipantId", newParticipantId);
     let body2 = {
       state: "connected",
     };
-    await capi.patchConversationsEmailParticipant(conversationId, newParticipantId, body2);
+    await capi.patchConversationsEmailParticipant(
+      conversationId,
+      newParticipantId,
+      body2
+    );
     //@ts-ignore
     document.getElementById("preview-modal")!.close();
   } catch (error) {
@@ -890,7 +986,10 @@ function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function getParticipantIdByUserId(conversation: any, userId: string): string | null {
+function getParticipantIdByUserId(
+  conversation: any,
+  userId: string
+): string | null {
   for (const participant of conversation.participants) {
     if (participant.user && participant.user.id === userId) {
       return participant.id;
@@ -905,7 +1004,7 @@ function populateTableData(emailList: EmailListElement[]) {
     return;
   }
   emailList.forEach((email) => {
-    console.log("email", email);
+    // console.log("email", email);
 
     addRow(
       email.conversationId!,
@@ -987,13 +1086,16 @@ function addRow(
   }).format(new Date(lastMessage))}`;
 
   const processingTime = Math.round(
-    (new Date().getTime() - new Date(lastMessage).getTime())
-  )
+    new Date().getTime() - new Date(lastMessage).getTime()
+  );
   console.log("processingTime", processingTime);
   // @ts-ignore
-  T_processingTime.innerHTML =  new Intl.DurationFormat("en", { style: "narrow" , fields: ["day", "hour", "minute"]}).format(convertToDuration(processingTime))
+  T_processingTime.innerHTML = new Intl.DurationFormat("en", {
+    style: "narrow",
+    fields: ["day", "hour", "minute"],
+  }).format(convertToDuration(processingTime));
 
-  const threshold = 7*24*60*60*1000; // 7*24H
+  const threshold = 7 * 24 * 60 * 60 * 1000; // 7*24H
 
   // Change row color if processing time is larger than the threshold
   if (processingTime > threshold) {
@@ -1019,7 +1121,12 @@ function addRow(
   T_action.appendChild(T_actionButtonDiv);
   let T_action_viewButton = document.createElement("gux-button");
   T_action_viewButton.setAttribute("accent", "primary");
-  T_action_viewButton.onclick = previewEmail.bind(this, id, participantId!, status!);
+  T_action_viewButton.onclick = previewEmail.bind(
+    this,
+    id,
+    participantId!,
+    status!
+  );
   let T_action_viewButton_icon = document.createElement("gux-icon");
   T_action_viewButton_icon.setAttribute("icon-name", "fa/eye-regular");
   T_action_viewButton_icon.setAttribute("screenreader-text", "View");
@@ -1100,16 +1207,20 @@ function convertToDuration(ms: number) {
   };
 }
 
-function popUp(id:Number, type:"error"|"info"|"success"|undefined, message:string) {
-  let time = id.toString()
-  console.log("type", type);
+function popUp(
+  id: Number,
+  type: "error" | "info" | "success" | undefined,
+  message: string
+) {
+  let time = id.toString();
+  // console.log("type", type);
   let options = {
     type: type,
     id: time,
     timeout: 3,
     showCloseButton: true,
-  }
-  myClientApp.alerting.showToastPopup('', message, options)
+  };
+  myClientApp.alerting.showToastPopup("", message, options);
 }
 
 async function previewEmail(id: string, participantId: string, status: string) {
@@ -1129,9 +1240,10 @@ async function previewEmail(id: string, participantId: string, status: string) {
   // }
   document.getElementById("preview-modal-content")!.innerHTML = emailContent;
   // document.getElementById("claim-email")!.setAttribute("disabled", currentEmailClaim);
-  document.getElementById("claim-email")!.setAttribute("disabled", "false") 
-  status == "Interacting" || status == "On Hold"
-  ? document.getElementById("claim-email")!.setAttribute("disabled", "true")  : null;
+  document.getElementById("claim-email")!.setAttribute("disabled", "false");
+  status == "Interacting" || status == "On Hold" || status == "Disconnected"
+    ? document.getElementById("claim-email")!.setAttribute("disabled", "true")
+    : null;
 
   //@ts-expect-error
   document.getElementById("preview-modal")!.showModal();
@@ -1140,8 +1252,10 @@ async function previewEmail(id: string, participantId: string, status: string) {
 async function disconnectEmail(conversationId: string) {
   try {
     // const conversation = await capi.getConversation(conversationId);
-    const disconnectedConversation=await capi.postConversationDisconnect(conversationId)
-    console.log("disconnectedConversation",disconnectedConversation)
+    const disconnectedConversation = await capi.postConversationDisconnect(
+      conversationId
+    );
+    console.log("disconnectedConversation", disconnectedConversation);
     // const participantObject = conversation.participants.filter((p) => p.id === participantId)[0];
     // console.log("participantObject", participantObject);
     // let communicationId = participantObject.emails![0].id;
@@ -1177,7 +1291,7 @@ async function getUsers() {
   if (!users) {
     return;
   }
-  console.log(users);
+  // console.log(users);
   let list = document.getElementById("listUsers")!;
   for (const user of users.entities!) {
     let item = document.createElement("gux-option");
@@ -1195,7 +1309,7 @@ async function getQueues() {
   if (!queues) {
     return;
   }
-  console.log(queues);
+  // console.log(queues);
   let list = document.getElementById("listQueues")!;
   for (const queue of queues.entities!) {
     let item = document.createElement("gux-option");
@@ -1231,7 +1345,11 @@ function filterTable(searchValue: string, status: string) {
       }
     });
     const statusCell = cells[statusColumnIndex];
-    if (status && statusCell && statusCell.textContent?.toLowerCase() !== status.toLowerCase()) {
+    if (
+      status &&
+      statusCell &&
+      statusCell.textContent?.toLowerCase() !== status.toLowerCase()
+    ) {
       match = false;
     }
     if (match) {
@@ -1255,3 +1373,433 @@ function filterTable(searchValue: string, status: string) {
 //     count
 //   }));
 // }
+
+// functions for historical search functionality
+
+async function getLakeTime() {
+  const lake = await capi.getAnalyticsConversationsDetailsJobsAvailability();
+  (
+    document.getElementById("lakeTime") as HTMLInputElement
+  ).innerText = `Data available from: ${new Date(
+    lake.dataAvailabilityDate as string
+  ).toLocaleString()}`;
+}
+function months12() {
+  let today = new Date();
+  let aMonthAgo = new Date();
+  aMonthAgo.setMonth(aMonthAgo.getMonth() - 12);
+  // prettier-ignore
+  (document.getElementById('datepicker') as HTMLInputElement).value = `${aMonthAgo.getFullYear()}-${String(aMonthAgo.getMonth() + 1).padStart(2, '0')}-${String(aMonthAgo.getDate()).padStart(2, '0')}/${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+}
+
+function months24() {
+  let today = new Date();
+  let aMonthAgo = new Date();
+  aMonthAgo.setMonth(aMonthAgo.getMonth() - 24);
+  // prettier-ignore
+  (document.getElementById('datepicker') as HTMLInputElement).value = `${aMonthAgo.getFullYear()}-${String(aMonthAgo.getMonth() + 1).padStart(2, '0')}-${String(aMonthAgo.getDate()).padStart(2, '0')}/${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+}
+
+function getUTCOffset() {
+  const now = new Date();
+  const offsetMinutes = now.getTimezoneOffset();
+  const offsetHours = -offsetMinutes / 60; // Invert for standard UTC offset representation
+
+  let offsetString = "";
+  if (offsetHours === 0) {
+    offsetString = "+00:00";
+  } else {
+    const sign = offsetHours > 0 ? "+" : "-";
+    const absHours = Math.abs(Math.floor(offsetHours));
+    const minutes = Math.abs(Math.floor((offsetHours - absHours) * 60));
+    const hoursString = absHours.toString().padStart(2, "0");
+    const minutesString = minutes.toString().padStart(2, "0");
+    offsetString = `${sign}${hoursString}:${minutesString}`;
+  }
+  const timeZoneElement = document.getElementById(
+    "timeZone"
+  ) as HTMLInputElement;
+  if (timeZoneElement) {
+    timeZoneElement.value = offsetString;
+  }
+}
+
+// download csv
+// function buildCsv() {
+//   let csvContent =
+//     "data:text/csv;charset=utf-8," +
+//     csvRows.map((e) => e.join(",")).join("\r\n");
+//   const encodedUri = encodeURI(csvContent);
+//   const link = document.createElement("a");
+//   link.setAttribute("href", encodedUri);
+//   link.setAttribute("download", "report.csv");
+//   document.body.appendChild(link);
+//   link.click();
+// }
+
+async function clearData() {
+  console.log("%cClearing data", "color: green");
+  const tableLocation = document.getElementById("tableLocation");
+  if (tableLocation) {
+    tableLocation.innerHTML = "";
+  }
+  const spinner = document.getElementById("spinner");
+  if (spinner) {
+    spinner.style.display = "none";
+  }
+  const download = document.getElementById("download");
+  if (download) {
+    download.style.display = "none";
+  }
+  csvRows = [];
+  document.getElementById(
+      "tCount"
+    )!.innerText = `Total Count: 0`;
+}
+
+function notification(type: string, message: string) {
+  if (window.location !== window.parent.location) {
+    // if in an iframe
+    myClientApp.alerting.showToastPopup(type, message);
+    return;
+  }
+  window.alert(message);
+  return;
+}
+
+// dynamic table creation
+async function buildTableRows(rows: any) {
+  for (const row of rows) {
+    let tableBody = document.getElementById("tableBody");
+    if (!tableBody) {
+      // create the top table row if its not already there
+      console.log("Creating table");
+      let top = document.getElementById("tableLocation") as HTMLElement;
+      let guxTable = document.createElement("gux-table");
+      let table = document.createElement("table");
+      let header = document.createElement("thead");
+      let headerRow = document.createElement("tr");
+      let tbody = document.createElement("tbody");
+
+      headerRow.setAttribute("data-row-id", "head");
+      tbody.setAttribute("id", "tableBody");
+      table.setAttribute("slot", "data");
+      guxTable.setAttribute("resizable-columns", "");
+
+      header.appendChild(headerRow);
+      guxTable.appendChild(table);
+      table.appendChild(header);
+      table.appendChild(tbody);
+
+      // create column names on first row
+      for (const item of row) {
+        let th = document.createElement("th");
+        th.setAttribute("data-column-name", item);
+        th.style.textWrap = "auto";
+        if (item === "Subject") {
+          th.style.maxWidth = "200px";
+          th.style.overflow = "hidden";
+          th.style.textOverflow = "ellipsis";
+        }
+        th.innerHTML = item;
+        th.title = item;
+        headerRow.appendChild(th);
+      }
+      top.appendChild(guxTable);
+      continue;
+    }
+    if (tableBody) {
+      // add data to the row
+      let tr = document.createElement("tr");
+      let columnIndex = 0;
+      for (const item of row) {
+        let column = document.createElement("td");
+        // Get the column name from the header
+        const columnName = csvRows[0][columnIndex];
+        if (columnName === "Subject") {
+          column.style.maxWidth = "200px";
+          column.style.overflow = "hidden";
+          column.style.textOverflow = "ellipsis";
+          column.style.whiteSpace = "nowrap";
+          column.title = item; // Add tooltip with full subject text
+        }
+        if (item === "OpenBtn") {
+          let btnOpen = document.createElement("gux-button");
+          btnOpen.setAttribute("accent", "secondary");
+          btnOpen.setAttribute("size", "small");
+          btnOpen.innerText = "Open in Genesys";
+          btnOpen.onclick = function () {
+            myClientApp.conversations.showInteractionDetails(
+              (this as HTMLElement).parentNode!.parentNode!.firstChild!
+                .textContent!
+            );
+          };
+          column.appendChild(btnOpen);
+        } else if (item === "PreviewBtn") {
+          let btnPreview = document.createElement("gux-button");
+          btnPreview.setAttribute("accent", "secondary");
+          btnPreview.setAttribute("size", "small");
+          btnPreview.innerText = "Preview";
+          btnPreview.onclick = function () {
+            previewEmail(
+              (this as HTMLElement).parentNode!.parentNode!.firstChild!
+                .textContent!,
+              "N/A",
+              "Disconnected"
+            );
+          };
+          row[1]=== "voice" ? btnPreview.setAttribute("disabled", "true") : null;
+
+          column.appendChild(btnPreview);
+        } else {
+          column.innerHTML = item;
+        }
+        tr.appendChild(column);
+        columnIndex++;
+      }
+      tableBody.appendChild(tr);
+    }
+  }
+}
+
+async function getData() {
+  console.log("%cGetting data", "color: green");
+  csvRows = [];
+  document.getElementById("tableLocation")!.innerHTML = "";
+  document.getElementById("loading")!.style.display = "block";
+  let conversations: any = {};
+  try {
+    conversations = await more31Days();
+    // console.log("Conversations: ", conversations);
+    document.getElementById(
+      "tCount"
+    )!.innerText = `Total Count: ${conversations.conversations.length}`;
+
+    if (conversations.conversations.length === 0) {
+      notification("Info", "No conversations found for the given criteria.");
+      document.getElementById("loading")!.style.display = "none";
+      return;
+    }
+
+    const userIds: string[] = conversations.conversations
+      .map(
+        (conv: any) =>
+          conv.participants.find((p: any) => p.purpose == "agent")?.userId
+      )
+      .filter((userId: string | undefined) => userId !== undefined);
+    const uniqueUserIds = Array.from(new Set(userIds));
+    let opts = {
+      pageSize: 500,
+      id: uniqueUserIds,
+    };
+    const users = await uapi.getUsers(opts);
+
+    for (const conv of conversations.conversations) {
+
+      // add the column names to the first row
+      if (csvRows.length === 0) {
+        csvRows.push(["ConversationId"]);
+        csvRows[0].push('Media Type')
+        csvRows[0].push("First queue");
+        csvRows[0].push("Subject");
+        csvRows[0].push("First Agent");
+        csvRows[0].push("Start Date");
+        csvRows[0].push("Open");
+        csvRows[0].push("Preview");
+      }
+      // add the data to the row
+      csvRows.push([conv.conversationId]);
+      csvRows[csvRows.length - 1].push(conv.participants[0].sessions[0].mediaType)
+      csvRows[csvRows.length - 1].push(
+        conv.participants.find((p: any) => p.purpose == "acd")
+          ?.participantName || "N/A"
+      );
+      csvRows[csvRows.length - 1].push(
+        conv.participants.find(
+          (p: any) => p.purpose == "customer" || p.purpose == "external"
+        )?.sessions[0]?.segments[0]?.subject || "N/A"
+      );
+      let agentName =
+        conv.participants.find((p: any) => p.purpose == "agent")
+          ?.participantName || "N/A";
+      if (agentName === "N/A") {
+        // try to get from userId
+        const userId = conv.participants.find(
+          (p: any) => p.purpose == "agent"
+        )?.userId;
+        const user = users.entities?.find((entity) => entity.id === userId);
+        const name = user ? user.name : null;
+        if (name) {
+          agentName = name;
+        }
+      }
+
+      csvRows[csvRows.length - 1].push(agentName);
+
+      csvRows[csvRows.length - 1].push(
+        new Date(conv.conversationStart).toLocaleString().replace(",", " ")
+      );
+      csvRows[csvRows.length - 1].push("OpenBtn");
+      csvRows[csvRows.length - 1].push("PreviewBtn");
+    }
+    await buildTableRows(csvRows);
+    document.getElementById("loading")!.style.display = "none";
+    // document.getElementById("download").style.display = "block";
+  } catch (err) {
+    console.log("Error: ", err);
+    notification("Error", `Error: ${err}`);
+  }
+}
+
+async function more31Days() {
+  let job: any = {};
+  if ((document.getElementById("type") as HTMLInputElement).value === "ani") {
+    job = await createJobAni();
+    console.log("Job created: ", job);
+  }
+  if ((document.getElementById("type") as HTMLInputElement).value === "email") {
+    job = await createJobRemote();
+    console.log("Job created: ", job);
+  }
+  if (
+    (document.getElementById("type") as HTMLInputElement).value ===
+    "externalTag"
+  ) {
+    job = await createJobExternalTag();
+    console.log("Job created: ", job);
+  }
+  let jobStatus: any = await getJobStatus(job.jobId);
+  console.log("Job status: ", jobStatus);
+  while (jobStatus.state !== "FULFILLED") {
+    console.log("Waiting for job to complete...");
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    jobStatus = await getJobStatus(job.jobId);
+    console.log("Job status: ", jobStatus);
+  }
+  if (jobStatus.state === "FAILED") {
+    throw new Error("Job failed to complete.");
+  }
+  const results = await getJobResults(job.jobId);
+  console.log("Job Results: ", results);
+  return results;
+}
+
+async function createJobAni() {
+  const job = await capi.postAnalyticsConversationsDetailsJobs({
+    // prettier-ignore
+    interval: `${(document.getElementById('datepicker') as HTMLInputElement).value.split('/')[0]}T00:00:00${(document.getElementById('timeZone') as HTMLInputElement).value}/${(document.getElementById('datepicker') as HTMLInputElement).value.split('/')[1]}T23:59:59${(document.getElementById('timeZone') as HTMLInputElement).value}`,
+    segmentFilters: [
+      {
+        type: "and",
+        predicates: [
+          {
+            dimension: "ani",
+            value: (document.getElementById("input") as HTMLInputElement).value,
+          },
+        ],
+      },
+    ],
+    orderBy: "conversationStart",
+  });
+  return job;
+}
+
+// async function createJobRemote() {
+//   const job = await capi.postAnalyticsConversationsDetailsJobs({
+//     // prettier-ignore
+//     interval: `${document.getElementById('datepicker').value.split('/')[0]}T00:00:00${document.getElementById('timeZone').value}/${document.getElementById('datepicker').value.split('/')[1]}T23:59:59${document.getElementById('timeZone').value}`,
+//     segmentFilters: [
+//       {
+//         type: "and",
+//         predicates: [
+//           {
+//             dimension: "remote",
+//             value: document.getElementById("input").value,
+//           },
+//         ],
+//       },
+//     ],
+//     orderBy: "conversationStart",
+//   });
+//   return job;
+// }
+
+async function createJobExternalTag() {
+  const job = await capi.postAnalyticsConversationsDetailsJobs({
+    // prettier-ignore
+    interval: `${(document.getElementById('datepicker') as HTMLInputElement).value.split('/')[0]}T00:00:00${(document.getElementById('timeZone') as HTMLInputElement).value}/${(document.getElementById('datepicker') as HTMLInputElement).value.split('/')[1]}T23:59:59${(document.getElementById('timeZone') as HTMLInputElement).value}`,
+    conversationFilters: [
+      {
+        type: "and",
+        predicates: [
+          {
+            dimension: "externalTag",
+            value: (document.getElementById("input") as HTMLInputElement)!
+              .value,
+          },
+        ],
+      },
+    ],
+    orderBy: "conversationStart",
+  });
+  return job;
+}
+
+async function createJobRemote() {
+  const job = await capi.postAnalyticsConversationsDetailsJobs({
+    // prettier-ignore
+    interval: `${(document.getElementById('datepicker') as HTMLInputElement).value.split('/')[0]}T00:00:00${(document.getElementById('timeZone') as HTMLInputElement).value}/${(document.getElementById('datepicker') as HTMLInputElement).value.split('/')[1]}T23:59:59${(document.getElementById('timeZone') as HTMLInputElement).value}`,
+    segmentFilters: [
+      {
+        type: "and",
+        predicates: [
+          {
+            dimension: "remote",
+            value: (document.getElementById("input") as HTMLInputElement).value,
+          },
+        ],
+      },
+    ],
+    orderBy: "conversationStart",
+  });
+  return job;
+}
+
+async function getJobStatus(jobId: any) {
+  let jobStatus = await capi.getAnalyticsConversationsDetailsJob(jobId);
+  return jobStatus;
+}
+
+async function getJobResults(jobId: any) {
+  let result = await capi.getAnalyticsConversationsDetailsJobResults(jobId);
+
+  if (!result.cursor) {
+    console.log("Single page of results");
+    return result;
+  } else {
+    console.log("Multiple pages of results");
+    let pages = true;
+    let allResults = result;
+    while (pages) {
+      const nextResult = await capi.getAnalyticsConversationsDetailsJobResults(
+        jobId,
+        {
+          cursor: result.cursor,
+        }
+      );
+      if (
+        allResults.conversations !== undefined &&
+        nextResult.conversations !== undefined
+      ) {
+        allResults.conversations = allResults.conversations.concat(
+          nextResult.conversations
+        );
+      }
+      result.cursor = nextResult.cursor;
+      if (!nextResult.cursor) {
+        pages = false;
+      }
+    }
+    return allResults;
+  }
+}
