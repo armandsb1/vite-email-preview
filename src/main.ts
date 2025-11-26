@@ -897,7 +897,7 @@ async function getConversationPreview(conversationId: string) {
     const messages = await capi.getConversationsEmailMessages(conversationId);
     console.log("messages :", messages);
     //skipping autoreply if that was the last message in thread
-    const messageId = getFirstShortId(messages);
+    const messageId = getFirstNonCustomerEmailId(messages);
     if (!messageId) {
       console.error("No message ID found");
       return;
@@ -920,15 +920,34 @@ async function getConversationPreview(conversationId: string) {
   }
 }
 
-function getFirstShortId(
-  entities: platformClient.Models.EmailMessagePreviewListing
-) {
-  for (let entity of entities.entities!) {
-    if (entity.id && entity.id.length < 37) {
-      return entity.id;
-    }
+// function getFirstShortId(
+//   entities: platformClient.Models.EmailMessagePreviewListing
+// ) {
+//   for (let entity of entities.entities!) {
+//     if (entity.id && entity.id.length < 37) {
+//       return entity.id;
+//     }
+//   }
+//   return null; // Return null if no such ID is found
+// }
+
+function getFirstNonCustomerEmailId(data:platformClient.Models.EmailMessagePreviewListing) {
+  // Find the first entity where from.email domain is not bigbank.ee or bigbank.lv or other country as well as not tootukassa or not ergo or not seb
+ if (!data.entities) {
+    return null;
   }
-  return null; // Return null if no such ID is found
+  const firstNonCustomer = data.entities.find(entity => {
+    if (!entity.from || !entity.from.email) {
+      return null;
+    }
+    
+    const email = entity.from.email.toLowerCase();
+    const domain = email.split('@')[1];
+    
+    return domain !== 'bigbank.ee'  && domain !== 'bigbank.lv' && domain !== 'bigbank.lt' && domain !== 'bigbank.at' && domain !== 'bigbank.fi' && domain !== 'bigbank.se'&& domain !== 'bigbank.de' && domain !== 'bigbank.bg' && domain !== 'bigbank.nl' && domain !=='sissenoudekeskus.ee'&& domain !== 'tootukassa.ee' && domain !== 'seb.ee' && domain !== 'seb.lv' && domain !== 'seb.lt' ;
+  });
+  
+  return firstNonCustomer ? firstNonCustomer.id : null;
 }
 
 async function claimEmail(conversationId: string, participantId: string) {
