@@ -556,6 +556,7 @@ function extractEmailData(
   let emailListPart = [];
   if (emails) {
     for (const email of emails) {
+      console.log("email", email);
       const customerParticipant = email.participants?.filter(
         (p) => p.purpose == "customer" || p.purpose == "external"
       )[0];
@@ -565,12 +566,21 @@ function extractEmailData(
       const queueParticipants = email.participants?.filter(
         (p) => p.purpose == "acd"
       );
+      let subject="";
       // console.log("agentParticipants", agentParticipants);
+      if (email.originatingDirection==="inbound") {
+     subject= customerParticipant!.sessions![0].segments![0].subject || ""}
+      else {
+        // check if agentParticipants has sessions and segments
+        if (agentParticipants && agentParticipants.length > 0 &&agentParticipants[0].sessions && agentParticipants[0].sessions!.length > 0 && agentParticipants[0].sessions![0].segments && agentParticipants[0].sessions![0].segments!.length > 1)
+        subject=agentParticipants![0].sessions![0].segments.find(segment => segment.segmentType === "transmitting")?.subject || "";
+
+      }
       let emailElement = {
         conversationId: email.conversationId,
-        subject: customerParticipant!.sessions![0].segments![0].subject || "",
         from: customerParticipant!.sessions![0].addressFrom,
         to: customerParticipant!.sessions![0].addressTo,
+        subject: subject,
         status: status,
         queue: findLatestInteractParticipant(queueParticipants) || "",
         firstQueue: findFirstInteractParticipant(queueParticipants) || "",
@@ -638,12 +648,12 @@ async function processEmailQuery() {
                 dimension: "conversationEnd",
                 operator: "notExists",
               },
-              {
-                type: "dimension",
-                dimension: "originatingDirection",
-                operator: "matches",
-                value: "inbound",
-              },
+              // {
+              //   type: "dimension",
+              //   dimension: "originatingDirection",
+              //   operator: "matches",
+              //   value: "inbound",
+              // },
             ],
           },
         ],
@@ -661,10 +671,36 @@ async function processEmailQuery() {
         console.log(`No data found in loop ${i}`);
         break;
       }
+           // Add first page of conversations
       data.conversations = [
         ...data.conversations!,
         ...periodData.conversations!,
       ];
+      
+      // Check if pagination is needed
+      if (periodData.totalHits && periodData.totalHits > 100) {
+        const totalPages = Math.ceil(periodData.totalHits / 100);
+        console.log(`Total hits: ${periodData.totalHits}, fetching ${totalPages} pages`);
+        
+        // Fetch remaining pages
+        for (let page = 2; page <= totalPages; page++) {
+          body.paging = {
+            pageSize: 100,
+            pageNumber: page,
+          };
+          
+          const nextPageData = await capi.postAnalyticsConversationsDetailsQuery(body);
+          console.log(`Fetched page ${page} of ${totalPages}`);
+          
+          if (nextPageData.conversations) {
+            data.conversations = [
+              ...data.conversations!,
+              ...nextPageData.conversations!,
+            ];
+          }
+          console.log("data.conversations.length", data.conversations.length);
+        }
+      }
     } catch (error) {
       console.error("Error: ", error);
     }
@@ -1107,7 +1143,7 @@ function addRow(
   const processingTime = Math.round(
     new Date().getTime() - new Date(lastMessage).getTime()
   );
-  console.log("processingTime", processingTime);
+  // console.log("processingTime", processingTime);
   // @ts-ignore
   T_processingTime.innerHTML = new Intl.DurationFormat("en", {
     style: "narrow",
@@ -1118,7 +1154,7 @@ function addRow(
 
   // Change row color if processing time is larger than the threshold
   if (processingTime > threshold) {
-    console.log("processing time is larger than threshold");
+    // console.log("processing time is larger than threshold");
     T_processingTime.style.backgroundColor = "lightcoral"; // Change to your desired color
   }
 
