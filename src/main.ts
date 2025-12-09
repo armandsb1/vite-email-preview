@@ -980,7 +980,7 @@ function getFirstNonCustomerEmailId(data:platformClient.Models.EmailMessagePrevi
     const email = entity.from.email.toLowerCase();
     const domain = email.split('@')[1];
     
-    return domain !== 'bigbank.ee'  && domain !== 'bigbank.lv' && domain !== 'bigbank.lt' && domain !== 'bigbank.at' && domain !== 'bigbank.fi' && domain !== 'bigbank.se'&& domain !== 'bigbank.de' && domain !== 'bigbank.bg' && domain !== 'bigbank.nl' && domain !=='sissenoudekeskus.ee'&& domain !== 'tootukassa.ee' && domain !== 'seb.ee' && domain !== 'seb.lv' && domain !== 'seb.lt' ;
+    return domain !== 'bigbank.ee'  && domain !== 'bigbank.lv' && domain !== 'bigbank.lt' && domain !== 'bigbank.at' && domain !== 'bigbank.fi' && domain !== 'bigbank.se'&& domain !== 'bigbank.de' && domain !== 'bigbank.bg' && domain !== 'bigbank.nl' && domain !=='sissenoudekeskus.ee'&& domain !== 'seb.ee' && domain !== 'seb.lv' && domain !== 'seb.lt' ;
   });
   
   return firstNonCustomer ? firstNonCustomer.id : null;
