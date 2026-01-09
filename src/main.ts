@@ -1126,7 +1126,7 @@ function addRow(
 
   row.id = id;
   row.setAttribute("data-row-id", id);
-  status == "In Queue" || status == "Alerting" || status == "Parked"
+  status == "In Queue" || status == "Alerting" || status == "Parked" || status == "Interacting" || status == "On Hold"
     ? (select.innerHTML = "<gux-row-select></gux-row-select>")
     : (select.innerHTML = "<gux-row-select disabled></gux-row-select>");
   // T_originating_direction.innerHTML = originating_direction;
