@@ -1161,6 +1161,7 @@ function addRow(
   T_from.innerHTML = `<gux-truncate>${from}</gux-truncate>`;
   T_to.innerHTML = `<gux-truncate>${to}</gux-truncate>`;
   T_subject.innerHTML = `<gux-truncate>${subject}</gux-truncate>`;
+  T_subject.style.maxWidth="500px"
   T_status.innerHTML = status;
   // T_routing_state.innerHTML = routing_state;
   // T_assigned_to.innerHTML = assigned_to;
