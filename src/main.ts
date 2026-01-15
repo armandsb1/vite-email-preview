@@ -1102,7 +1102,7 @@ function addRow(
   let T_from = document.createElement("td");
   let T_to = document.createElement("td");
   let T_subject = document.createElement("td");
-  T_subject.style.width = "150px";
+  T_subject.style.maxWidth = "500px";
   T_subject.style.wordBreak = "break-word";
 
   let T_status = document.createElement("td");
@@ -1859,4 +1859,5 @@ async function getJobResults(jobId: any) {
     return allResults;
   }
 }
+
 
