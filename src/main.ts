@@ -983,7 +983,7 @@ function getFirstNonCustomerEmailId(data:platformClient.Models.EmailMessagePrevi
     return domain !== 'bigbank.ee'  && domain !== 'bigbank.lv' && domain !== 'bigbank.lt' && domain !== 'bigbank.at' && domain !== 'bigbank.fi' && domain !== 'bigbank.se'&& domain !== 'bigbank.de' && domain !== 'bigbank.bg' && domain !== 'bigbank.nl' && domain !=='sissenoudekeskus.ee'&& domain !== 'seb.ee' && domain !== 'seb.lv' && domain !== 'seb.lt' ;
   });
   
-  return firstNonCustomer ? firstNonCustomer.id : null;
+  return firstNonCustomer ? firstNonCustomer.id : data.entities[data.entities.length - 1].id;
 }
 
 async function claimEmail(conversationId: string, participantId: string) {
@@ -1859,3 +1859,4 @@ async function getJobResults(jobId: any) {
     return allResults;
   }
 }
+
