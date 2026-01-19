@@ -213,17 +213,17 @@ window.addEventListener("click", async function (e) {
         const cells = row.querySelectorAll("td");
 
         console.log("row", row);
-        console.log("data selected", row?.attributes[2]?.name);
+        // console.log("data selected", row?.attributes[2]?.name);
         console.log(
           "status",
           cells[statusColumnIndex]?.textContent?.toLowerCase()
         );
-
+        console.log("row is selected", row?.attributes[2]?.name == "data-selected-row")
+        console.log("row eligible for transfer", cells[statusColumnIndex]?.textContent?.toLowerCase() =="in queue" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "parked")
+        console.log("participant found", cells[participantColumnIndex]?.textContent)
         if (
           (row?.attributes[2]?.name == "data-selected-row" &&
-            cells[statusColumnIndex]?.textContent?.toLowerCase() ==
-              "in queue") ||
-          cells[statusColumnIndex]?.textContent?.toLowerCase() == "parked"
+            (cells[statusColumnIndex]?.textContent?.toLowerCase() == "in queue" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "interacting" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "parked"))
         ) {
           const participantId = cells[participantColumnIndex]?.textContent;
           if (!participantId) {
@@ -288,10 +288,14 @@ window.addEventListener("click", async function (e) {
           "status",
           cells[statusColumnIndex]?.textContent?.toLowerCase()
         );
+                console.log("row is selected", row?.attributes[2]?.name == "data-selected-row")
+        console.log("row eligible for transfer", cells[statusColumnIndex]?.textContent?.toLowerCase() =="in queue" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "parked")
+        console.log("participant found", cells[participantColumnIndex]?.textContent)
+
 
         if (
           row?.attributes[2]?.name == "data-selected-row" &&
-          cells[statusColumnIndex]?.textContent?.toLowerCase() == "in queue"
+          (cells[statusColumnIndex]?.textContent?.toLowerCase() == "in queue" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "interacting" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "parked")
         ) {
           const participantId = cells[participantColumnIndex]?.textContent;
           console.log("participantId", participantId);
@@ -822,6 +826,11 @@ export async function transferQueue(
       "postConversationsEmailParticipantReplace returned successfully.",
       data
     );
+    const participantKey = `transferred to queue at ${new Date().toLocaleString()} by`
+    const body2 : { attributes: { [key: string]: string } } = { attributes: {} }
+    body2.attributes[participantKey] = user?.name||"Unknown"
+    await capi.patchConversationsEmailParticipantAttributes(conversationId, participantId, body2)
+
   } catch (error) {
     console.log(
       "There was a failure calling postConversationsEmailParticipantReplace"
@@ -860,6 +869,11 @@ export async function transferUser(
       "postConversationsEmailParticipantReplace returned successfully.",
       data
     );
+    const participantKey = `transferred to user at ${new Date().toLocaleString()} by`
+    const body2 : { attributes: { [key: string]: string } } = { attributes: {} }
+    body2.attributes[participantKey] = user?.name||"Unknown"
+    await capi.patchConversationsEmailParticipantAttributes(conversationId, participantId, body2)
+
     //getting active participantId of the transferred conversation
     // const opts = {
     //   communicationType: "email",
