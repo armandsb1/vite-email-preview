@@ -1321,13 +1321,21 @@ async function previewEmail(id: string, participantId: string, status: string) {
 
 async function disconnectEmail(conversationId: string) {
   try {
-    // const conversation = await capi.getConversation(conversationId);
     const disconnectedConversation = await capi.postConversationDisconnect(
       conversationId
     );
     console.log("disconnectedConversation", disconnectedConversation);
-    // const participantObject = conversation.participants.filter((p) => p.id === participantId)[0];
-    // console.log("participantObject", participantObject);
+    const conversation = await capi.getConversation(conversationId);
+
+
+    const participantObject = conversation.participants.filter((p) => (p.purpose === "external"||p.purpose=="customer"))[0];
+    console.log("participantObject", participantObject);
+    const participantKey = `disconnected at ${new Date().toLocaleString()} by`
+    const body2 : { attributes: { [key: string]: string } } = { attributes: {} }
+    body2.attributes[participantKey] = user?.name||"Unknown"
+    if (!participantObject.id) return
+    await capi.patchConversationsEmailParticipantAttributes(conversationId, participantObject.id, body2)
+
     // let communicationId = participantObject.emails![0].id;
     // let body = {
     //   wrapup: {
