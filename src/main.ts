@@ -219,11 +219,12 @@ window.addEventListener("click", async function (e) {
           cells[statusColumnIndex]?.textContent?.toLowerCase()
         );
         console.log("row is selected", row?.attributes[2]?.name == "data-selected-row")
-        console.log("row eligible for transfer", cells[statusColumnIndex]?.textContent?.toLowerCase() =="in queue" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "parked")
+        console.log("row select",row?.attributes )
+        console.log("row eligible for transfer", (cells[statusColumnIndex]?.textContent?.toLowerCase() == "in queue" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "interacting" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "on hold" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "parked"))
         console.log("participant found", cells[participantColumnIndex]?.textContent)
         if (
-          (row?.attributes[2]?.name == "data-selected-row" &&
-            (cells[statusColumnIndex]?.textContent?.toLowerCase() == "in queue" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "interacting" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "parked"))
+          (row?.hasAttribute("data-selected-row") &&
+            (cells[statusColumnIndex]?.textContent?.toLowerCase() == "in queue" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "interacting" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "on hold" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "parked"))
         ) {
           const participantId = cells[participantColumnIndex]?.textContent;
           if (!participantId) {
@@ -288,14 +289,14 @@ window.addEventListener("click", async function (e) {
           "status",
           cells[statusColumnIndex]?.textContent?.toLowerCase()
         );
-                console.log("row is selected", row?.attributes[2]?.name == "data-selected-row")
-        console.log("row eligible for transfer", cells[statusColumnIndex]?.textContent?.toLowerCase() =="in queue" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "parked")
+                console.log("row is selected", row?.hasAttribute("data-selected-row"))
+        console.log("row eligible for transfer", (cells[statusColumnIndex]?.textContent?.toLowerCase() == "in queue" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "interacting" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "on hold" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "parked"))
         console.log("participant found", cells[participantColumnIndex]?.textContent)
 
 
         if (
-          row?.attributes[2]?.name == "data-selected-row" &&
-          (cells[statusColumnIndex]?.textContent?.toLowerCase() == "in queue" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "interacting" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "parked")
+          row?.hasAttribute("data-selected-row") &&
+          ((cells[statusColumnIndex]?.textContent?.toLowerCase() == "in queue" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "interacting" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "on hold" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "parked"))
         ) {
           const participantId = cells[participantColumnIndex]?.textContent;
           console.log("participantId", participantId);
@@ -330,7 +331,7 @@ window.addEventListener("click", async function (e) {
     let rows = document.getElementById("tbody")!.children;
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      if (row?.attributes[2]?.name == "data-selected-row") {
+      if (row?.hasAttribute("data-selected-row")) {
         console.log("row", row);
         console.log("row id", row?.id);
         const conversationId = row?.id;
@@ -349,7 +350,7 @@ window.addEventListener("click", async function (e) {
     let rows = document.getElementById("tbody")!.children;
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      if (row?.attributes[2]?.name == "data-selected-row") {
+      if (row?.hasAttribute("data-selected-row")) {
         console.log("row", row);
         console.log("row id", row?.id);
         const conversationId = row?.id;
@@ -826,9 +827,10 @@ export async function transferQueue(
       "postConversationsEmailParticipantReplace returned successfully.",
       data
     );
-    const participantKey = `transferred to queue at ${new Date().toLocaleString()} by`
+    const transferQueue = await rapi.getRoutingQueue(selectedQueueId)
+    const participantKey = `transferred at ${new Date().toLocaleString()} by`
     const body2 : { attributes: { [key: string]: string } } = { attributes: {} }
-    body2.attributes[participantKey] = user?.name||"Unknown"
+    body2.attributes[participantKey] = `${user?.name||"Unknown"} to queue ${transferQueue.name}`
     await capi.patchConversationsEmailParticipantAttributes(conversationId, participantId, body2)
 
   } catch (error) {
@@ -869,9 +871,10 @@ export async function transferUser(
       "postConversationsEmailParticipantReplace returned successfully.",
       data
     );
-    const participantKey = `transferred to user at ${new Date().toLocaleString()} by`
+    const transferUser = await uapi.getUser(selectedUserId,{})
+    const participantKey = `transferred at ${new Date().toLocaleString()} by`
     const body2 : { attributes: { [key: string]: string } } = { attributes: {} }
-    body2.attributes[participantKey] = user?.name||"Unknown"
+    body2.attributes[participantKey] = `${user?.name||"Unknown"} to user ${transferUser.name}`
     await capi.patchConversationsEmailParticipantAttributes(conversationId, participantId, body2)
 
     //getting active participantId of the transferred conversation
