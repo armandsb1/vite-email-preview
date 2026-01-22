@@ -15,6 +15,6 @@
   "dependencies": {
     "genesys-spark": "^4.119.0",
     "purecloud-client-app-sdk": "^2.6.7",
-    "purecloud-platform-client-v2": "^215.0.0"
+    "purecloud-platform-client-v2": "215.0.0"
   }
 }
