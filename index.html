@@ -70,6 +70,20 @@
                     <gux-option value="On Hold">On Hold</gux-option>
                   </gux-listbox>
                 </gux-dropdown>
+                <gux-dropdown
+                  id="queue-filter-field"
+                  style="width: 220px"
+                  filter-type="starts-with"
+                  placeholder="Filter by queue"
+                >
+                  <gux-listbox
+                    aria-label="input"
+                    name="queue-filter-field"
+                    id="queue-filter-value"
+                  >
+                    <gux-option value="">All</gux-option>
+                  </gux-listbox>
+                </gux-dropdown>
               </div>
               <gux-button>
                 <gux-icon

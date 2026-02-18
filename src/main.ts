@@ -134,7 +134,10 @@ document
       const statusValue = document.querySelector(
         "[name=status-field]"
       ) as HTMLSelectElement;
-      filterTable(searchValue.value, statusValue.value);
+      const queueFilterValue = (
+        document.querySelector("[name=queue-filter-field]") as HTMLSelectElement
+      ).value;
+      filterTable(searchValue.value, statusValue.value, queueFilterValue);
       searchValue.value = "";
       //@ts-ignore
       searchField.guxForceUpdate();
@@ -150,7 +153,23 @@ document
     const statusValue = (
       document.querySelector("[name=status-field]") as HTMLSelectElement
     ).value;
-    filterTable(searchValue, statusValue);
+    const queueFilterValue = (
+      document.querySelector("[name=queue-filter-field]") as HTMLSelectElement
+    ).value;
+    filterTable(searchValue, statusValue, queueFilterValue);
+  });
+
+document
+  .getElementById("queue-filter-value")!
+  .addEventListener("change", function () {
+    const searchValue = (
+      document.querySelector("[name=search-field]") as HTMLInputElement
+    ).value;
+    const statusValue = (
+      document.querySelector("[name=status-field]") as HTMLSelectElement
+    ).value;
+    const queueFilterValue = (this as HTMLSelectElement).value;
+    filterTable(searchValue, statusValue, queueFilterValue);
   });
 
 document.getElementById("months12")!.addEventListener("click", function () {
@@ -383,7 +402,10 @@ window.addEventListener("click", async function (e) {
     let statusValue = document.querySelector(
       "[name=status-field]"
     ) as HTMLSelectElement;
-    filterTable(searchValue.value, statusValue.value);
+    const queueFilterValue = (
+      document.querySelector("[name=queue-filter-field]") as HTMLSelectElement
+    ).value;
+    filterTable(searchValue.value, statusValue.value, queueFilterValue);
     searchValue.value = "";
     //@ts-ignore
     searchField.guxForceUpdate();
@@ -547,6 +569,17 @@ async function getActiveEmails() {
     document.getElementById("loading")!.style.display = "none";
 
     populateTableData(emailsList);
+
+    const searchValue = (
+      document.querySelector("[name=search-field]") as HTMLInputElement
+    ).value;
+    const statusValue = (
+      document.querySelector("[name=status-field]") as HTMLSelectElement
+    ).value;
+    const queueFilterValue = (
+      document.querySelector("[name=queue-filter-field]") as HTMLSelectElement
+    ).value;
+    filterTable(searchValue, statusValue, queueFilterValue);
   } catch (error) {
     console.error("Error: ", error);
   }
@@ -1392,23 +1425,35 @@ async function getQueues() {
   }
   // console.log(queues);
   let list = document.getElementById("listQueues")!;
+  let filterList = document.getElementById("queue-filter-value")!;
   for (const queue of queues.entities!) {
     let item = document.createElement("gux-option");
     item.innerText = queue.name!;
     item.setAttribute("value", queue.id!);
     list.appendChild(item);
+
+    if (queue.name!.toLowerCase().includes("email") || queue.name!.toLowerCase().includes("ootel")) {
+      let filterItem = document.createElement("gux-option");
+      filterItem.innerText = queue.name!;
+      filterItem.setAttribute("value", queue.name!);
+      filterList.appendChild(filterItem);
+    }
   }
 }
 
-function filterTable(searchValue: string, status: string) {
+function filterTable(searchValue: string, status: string, queue: string = "") {
   const rows = document.querySelectorAll("#tbody tr");
   const headers = document.querySelectorAll("#sortable-table thead th");
   let statusColumnIndex = -1;
+  let queueColumnIndex = -1;
 
-  // Find the index of the "Status" column
+  // Find the index of the "Status" and "Queue" columns
   headers.forEach((header, index) => {
     if (header.getAttribute("data-column-name") === "status") {
       statusColumnIndex = index;
+    }
+    if (header.getAttribute("data-column-name") === "queue") {
+      queueColumnIndex = index;
     }
   });
 
@@ -1432,6 +1477,15 @@ function filterTable(searchValue: string, status: string) {
       statusCell.textContent?.toLowerCase() !== status.toLowerCase()
     ) {
       match = false;
+    }
+    if (queue && queueColumnIndex !== -1) {
+      const queueCell = cells[queueColumnIndex];
+      if (
+        queueCell &&
+        queueCell.textContent?.toLowerCase() !== queue.toLowerCase()
+      ) {
+        match = false;
+      }
     }
     if (match) {
       row.setAttribute("style", "display: table-row;");
