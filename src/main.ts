@@ -188,6 +188,11 @@ document.getElementById("clearData")!.addEventListener("click", function () {
   clearData();
 });
 
+document.getElementById("queue-stats-toggle")!.addEventListener("click", function () {
+  const panel = document.getElementById("queue-stats-panel")!;
+  panel.style.display = panel.style.display === "none" ? "flex" : "none";
+});
+
 window.addEventListener("click", async function (e) {
   console.log("Window click", e);
 
@@ -569,6 +574,7 @@ async function getActiveEmails() {
     document.getElementById("loading")!.style.display = "none";
 
     populateTableData(emailsList);
+    populateQueueStats(emailsList);
 
     const searchValue = (
       document.querySelector("[name=search-field]") as HTMLInputElement
@@ -1127,6 +1133,98 @@ function populateTableData(emailList: EmailListElement[]) {
   });
   document.getElementById("loading")!.style.display = "none";
 }
+
+function populateQueueStats(emailList: EmailListElement[]) {
+  const tbody = document.getElementById("queue-stats-tbody");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  const counts: Record<string, number> = {};
+  const oldestMessage: Record<string, number> = {};
+  for (const email of emailList) {
+    const queueName = email.queue || "Unknown";
+    counts[queueName] = (counts[queueName] || 0) + 1;
+    const msgTime = email.lastMessage ? new Date(email.lastMessage).getTime() : Date.now();
+    if (oldestMessage[queueName] === undefined || msgTime < oldestMessage[queueName]) {
+      oldestMessage[queueName] = msgTime;
+    }
+  }
+
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+
+  const top5 = sorted.slice(0, 5);
+  const othersTotal = sorted.slice(5).reduce((sum, [, c]) => sum + c, 0);
+  const pieData: [string, number][] = [...top5];
+  if (othersTotal > 0) pieData.push(["Others", othersTotal]);
+  renderQueuePieChart(pieData);
+
+  for (const [name, count] of sorted) {
+    const waitMs = Date.now() - oldestMessage[name];
+    // @ts-ignore
+    const waitFormatted = new Intl.DurationFormat("en", { style: "narrow", fields: ["day", "hour", "minute"] }).format(convertToDuration(waitMs));
+    const tr = document.createElement("tr");
+    tr.style.cursor = "pointer";
+    tr.dataset.queue = name;
+    tr.innerHTML = `<td>${name}</td><td style="text-align: right;">${count}</td><td>${waitFormatted}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+function renderQueuePieChart(data: [string, number][]) {
+  const container = document.getElementById("queue-stats-chart");
+  if (!container) return;
+
+  const total = data.reduce((sum, [, c]) => sum + c, 0);
+  if (total === 0) { container.innerHTML = ""; return; }
+
+  const colors = ["#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f", "#bab0ac"];
+  const cx = 110, cy = 110, r = 90;
+
+  let paths = "";
+  let startAngle = -Math.PI / 2;
+  data.forEach(([, count], i) => {
+    const angle = (count / total) * 2 * Math.PI;
+    const endAngle = startAngle + angle;
+    const x1 = cx + r * Math.cos(startAngle), y1 = cy + r * Math.sin(startAngle);
+    const x2 = cx + r * Math.cos(endAngle),   y2 = cy + r * Math.sin(endAngle);
+    const large = angle > Math.PI ? 1 : 0;
+    paths += `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${large},1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${colors[i % colors.length]}" stroke="white" stroke-width="1.5"><title>${data[i][0]}: ${count}</title></path>`;
+    startAngle = endAngle;
+  });
+
+  let legend = "";
+  data.forEach(([name, count], i) => {
+    const pct = Math.round((count / total) * 100);
+    legend += `<g transform="translate(0,${i * 28})">
+      <rect width="13" height="13" rx="2" fill="${colors[i % colors.length]}"/>
+      <text x="19" y="11" font-size="12" fill="currentColor">${name} — ${count} (${pct}%)</text>
+    </g>`;
+  });
+
+  container.innerHTML = `<svg viewBox="0 0 520 220" width="520" height="220" style="overflow:visible;font-family:inherit">
+    <g>${paths}</g>
+    <g transform="translate(230,10)">${legend}</g>
+  </svg>`;
+}
+
+document.getElementById("queue-stats-tbody")!.addEventListener("click", function (e) {
+  const row = (e.target as HTMLElement).closest("tr") as HTMLTableRowElement | null;
+  if (!row) return;
+
+  const queueName = row.dataset.queue || "";
+  const searchValue = (document.querySelector("[name=search-field]") as HTMLInputElement).value;
+  const statusValue = (document.querySelector("[name=status-field]") as HTMLSelectElement).value;
+
+  // Hide the stats panel
+  document.getElementById("queue-stats-panel")!.style.display = "none";
+
+  // Reflect selection in the queue filter dropdown
+  const queueDropdown = document.getElementById("queue-filter-field") as any;
+  queueDropdown.value = queueName;
+  queueDropdown.guxForceUpdate?.();
+
+  filterTable(searchValue, statusValue, queueName);
+});
 
 function addRow(
   this: any,

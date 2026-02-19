@@ -93,6 +93,10 @@
                 ></gux-icon>
                 <span id="refresh">Refresh</span>
               </gux-button>
+              <gux-button accent="secondary" id="queue-stats-toggle">
+                <gux-icon icon-name="fa/chart-bar-regular" decorative></gux-icon>
+                Queue stats
+              </gux-button>
             </div>
             <div class="toolbar-right">
               <div class="transfer-block">
@@ -142,6 +146,22 @@
               </gux-button>
 
             </div>
+          </div>
+
+          <div id="queue-stats-panel" style="display: none; padding: 8px 0; gap: 24px; align-items: flex-start;">
+            <gux-table object-table id="queue-stats-table">
+              <table style="inline-size: 600px; table-layout: auto" slot="data">
+                <thead>
+                  <tr data-row-id="head">
+                    <th data-column-name="queue-name">Queue name</th>
+                    <th data-column-name="queue-count">Emails</th>
+                    <th data-column-name="queue-longest-wait">Longest wait</th>
+                  </tr>
+                </thead>
+                <tbody id="queue-stats-tbody"></tbody>
+              </table>
+            </gux-table>
+            <div id="queue-stats-chart"></div>
           </div>
 
           <gux-table object-table selectable-rows id="sortable-table">
