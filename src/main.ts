@@ -1591,6 +1591,32 @@ function filterTable(searchValue: string, status: string, queue: string = "") {
       row.setAttribute("style", "display: none;");
     }
   });
+
+  updateFilterInfo(searchValue, status, queue);
+}
+
+function updateFilterInfo(searchValue: string, status: string, queue: string) {
+  const bar = document.getElementById("filter-info-bar");
+  if (!bar) return;
+
+  const allRows = document.querySelectorAll("#tbody tr");
+  const total = allRows.length;
+  const visible = Array.from(allRows).filter(
+    (r) => (r as HTMLElement).style.display !== "none"
+  ).length;
+
+  if (!searchValue && !status && !queue) {
+    bar.style.display = "none";
+    return;
+  }
+
+  const parts: string[] = [];
+  if (searchValue) parts.push(`Search: "${searchValue}"`);
+  if (status) parts.push(`Status: ${status}`);
+  if (queue) parts.push(`Queue: ${queue}`);
+
+  bar.textContent = `${parts.join(" · ")} · Showing ${visible} of ${total} emails`;
+  bar.style.display = "block";
 }
 
 // function getQueueOccurrences(emailsList:any): { queueName: string; count: number }[] {
