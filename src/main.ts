@@ -43,6 +43,7 @@ const papi = new platformClient.PresenceApi();
 let user: platformClient.Models.UserMe | null = null;
 let selectedConversationId = "";
 let selectedParticipantId = "";
+let queueCounts: Record<string, number> = {};
 // @ts-ignore
 let selectedStatus = "";
 
@@ -170,6 +171,7 @@ document
     ).value;
     const queueFilterValue = (this as HTMLSelectElement).value;
     filterTable(searchValue, statusValue, queueFilterValue);
+    refreshQueueFilterLabels();
   });
 
 document.getElementById("months12")!.addEventListener("click", function () {
@@ -180,6 +182,12 @@ document.getElementById("months24")!.addEventListener("click", function () {
 });
 document.getElementById("getData")!.addEventListener("click", function () {
   getData();
+});
+document.getElementById("getDisconnected")!.addEventListener("click", function () {
+  const disconnectedColIndex = csvRows.length > 0
+    ? csvRows[0].indexOf("Disconnected in App")
+    : -1;
+  getData(row => disconnectedColIndex !== -1 && row[disconnectedColIndex] === true);
 });
 document.getElementById("months12")!.addEventListener("click", function () {
   months12();
@@ -243,7 +251,7 @@ window.addEventListener("click", async function (e) {
           cells[statusColumnIndex]?.textContent?.toLowerCase()
         );
         console.log("row is selected", row?.attributes[2]?.name == "data-selected-row")
-        console.log("row select",row?.attributes )
+        console.log("row select", row?.attributes)
         console.log("row eligible for transfer", (cells[statusColumnIndex]?.textContent?.toLowerCase() == "in queue" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "interacting" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "on hold" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "parked"))
         console.log("participant found", cells[participantColumnIndex]?.textContent)
         if (
@@ -313,7 +321,7 @@ window.addEventListener("click", async function (e) {
           "status",
           cells[statusColumnIndex]?.textContent?.toLowerCase()
         );
-                console.log("row is selected", row?.hasAttribute("data-selected-row"))
+        console.log("row is selected", row?.hasAttribute("data-selected-row"))
         console.log("row eligible for transfer", (cells[statusColumnIndex]?.textContent?.toLowerCase() == "in queue" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "interacting" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "on hold" || cells[statusColumnIndex]?.textContent?.toLowerCase() == "parked"))
         console.log("participant found", cells[participantColumnIndex]?.textContent)
 
@@ -417,14 +425,47 @@ window.addEventListener("click", async function (e) {
   }
 
   if ((e.target as HTMLElement).id === "claim-email") {
-    console.log("Claim emeail button clicked");
+    console.log("Claim emeail button clicked", (e.target as HTMLElement).innerText);
     // if (selectedStatus !== "In Queue" || selectedStatus !== "Parked") {
     //   console.log("Email is not in queue");
     //   return;
     // }
-    claimEmail(selectedConversationId, selectedParticipantId);
+    if ((e.target as HTMLElement).innerText == "Preview") {
+      claimEmail(selectedConversationId, selectedParticipantId);
+    }
+    else if ((e.target as HTMLElement).innerText == "Reconnect") {
+      console.log("Starting reconnect process")
+      // put reconnect logic here
+        reconnectEmail(selectedConversationId) 
+      
+    }
+    else return
   }
 });
+
+
+// Intercept gux-table's select-all before it processes it, so only visible rows are selected.
+// gux-all-row-select emits 'internalallrowselectchange' which bubbles through the slotted
+// <table> before reaching gux-table's @Listen handler on the host element.
+document.querySelector('#sortable-table table[slot="data"]')!
+  .addEventListener('internalallrowselectchange', (event: Event) => {
+    event.stopPropagation();
+    const selectAll = (event as CustomEvent).detail as boolean;
+
+    document.querySelectorAll<HTMLElement>('#tbody tr').forEach(tr => {
+      const rowSelect = tr.querySelector('gux-row-select') as any;
+      if (!rowSelect || rowSelect.disabled) return;
+
+      if (tr.style.display !== 'none') {
+        rowSelect.selected = selectAll;
+        if (selectAll) {
+          tr.setAttribute('data-selected-row', '');
+        } else {
+          tr.removeAttribute('data-selected-row');
+        }
+      }
+    });
+  });
 
 document.getElementById("tbody")!.addEventListener("dblclick", function (e) {
   const target = e.target as HTMLElement;
@@ -610,14 +651,15 @@ function extractEmailData(
       const queueParticipants = email.participants?.filter(
         (p) => p.purpose == "acd"
       );
-      let subject="";
+      let subject = "";
       // console.log("agentParticipants", agentParticipants);
-      if (email.originatingDirection==="inbound") {
-     subject= customerParticipant!.sessions![0].segments![0].subject || ""}
+      if (email.originatingDirection === "inbound") {
+        subject = customerParticipant!.sessions![0].segments![0].subject || ""
+      }
       else {
         // check if agentParticipants has sessions and segments
-        if (agentParticipants && agentParticipants.length > 0 &&agentParticipants[0].sessions && agentParticipants[0].sessions!.length > 0 && agentParticipants[0].sessions![0].segments && agentParticipants[0].sessions![0].segments!.length > 1)
-        subject=agentParticipants![0].sessions![0].segments.find(segment => segment.segmentType === "transmitting")?.subject || "";
+        if (agentParticipants && agentParticipants.length > 0 && agentParticipants[0].sessions && agentParticipants[0].sessions!.length > 0 && agentParticipants[0].sessions![0].segments && agentParticipants[0].sessions![0].segments!.length > 1)
+          subject = agentParticipants![0].sessions![0].segments.find(segment => segment.segmentType === "transmitting")?.subject || "";
 
       }
       let emailElement = {
@@ -715,27 +757,27 @@ async function processEmailQuery() {
         console.log(`No data found in loop ${i}`);
         break;
       }
-           // Add first page of conversations
+      // Add first page of conversations
       data.conversations = [
         ...data.conversations!,
         ...periodData.conversations!,
       ];
-      
+
       // Check if pagination is needed
       if (periodData.totalHits && periodData.totalHits > 100) {
         const totalPages = Math.ceil(periodData.totalHits / 100);
         console.log(`Total hits: ${periodData.totalHits}, fetching ${totalPages} pages`);
-        
+
         // Fetch remaining pages
         for (let page = 2; page <= totalPages; page++) {
           body.paging = {
             pageSize: 100,
             pageNumber: page,
           };
-          
+
           const nextPageData = await capi.postAnalyticsConversationsDetailsQuery(body);
           console.log(`Fetched page ${page} of ${totalPages}`);
-          
+
           if (nextPageData.conversations) {
             data.conversations = [
               ...data.conversations!,
@@ -868,8 +910,8 @@ export async function transferQueue(
     );
     const transferQueue = await rapi.getRoutingQueue(selectedQueueId)
     const participantKey = `transferred at ${new Date().toLocaleString()} by`
-    const body2 : { attributes: { [key: string]: string } } = { attributes: {} }
-    body2.attributes[participantKey] = `${user?.name||"Unknown"} to queue ${transferQueue.name}`
+    const body2: { attributes: { [key: string]: string } } = { attributes: {} }
+    body2.attributes[participantKey] = `${user?.name || "Unknown"} to queue ${transferQueue.name}`
     await capi.patchConversationsEmailParticipantAttributes(conversationId, participantId, body2)
 
   } catch (error) {
@@ -910,10 +952,10 @@ export async function transferUser(
       "postConversationsEmailParticipantReplace returned successfully.",
       data
     );
-    const transferUser = await uapi.getUser(selectedUserId,{})
+    const transferUser = await uapi.getUser(selectedUserId, {})
     const participantKey = `transferred at ${new Date().toLocaleString()} by`
-    const body2 : { attributes: { [key: string]: string } } = { attributes: {} }
-    body2.attributes[participantKey] = `${user?.name||"Unknown"} to user ${transferUser.name}`
+    const body2: { attributes: { [key: string]: string } } = { attributes: {} }
+    body2.attributes[participantKey] = `${user?.name || "Unknown"} to user ${transferUser.name}`
     await capi.patchConversationsEmailParticipantAttributes(conversationId, participantId, body2)
 
     //getting active participantId of the transferred conversation
@@ -983,32 +1025,86 @@ export async function transferUser(
 //   return null; // Return null if no matching participant is found
 // }
 
-async function getConversationPreview(conversationId: string) {
-  console.log("getConversationPreview conversationId", conversationId);
+// async function getConversationPreview(conversationId: string) {
+//   console.log("getConversationPreview conversationId", conversationId);
+//   try {
+//     const messages = await capi.getConversationsEmailMessages(conversationId);
+//     console.log("messages :", messages);
+//     //skipping autoreply if that was the last message in thread
+//     const messageId = getFirstNonCustomerEmailId(messages);
+//     if (!messageId) {
+//       console.error("No message ID found");
+//       return;
+//     }
+//     console.log("messageId :", messageId);
+//     const messageContent = await capi.getConversationsEmailMessage(
+//       conversationId,
+//       messageId
+//     );
+//     console.log("messageContent :", messageContent);
+//     let body = "";
+//     if (messageContent.htmlBody) {
+//       body = messageContent.htmlBody;
+//     } else {
+//       body = messageContent.textBody;
+//     }
+//     return body;
+//   } catch (error) {
+//     console.log(error);
+//   }
+// }
+
+async function getConversationThread(conversationId: string): Promise<string> {
   try {
-    const messages = await capi.getConversationsEmailMessages(conversationId);
-    console.log("messages :", messages);
-    //skipping autoreply if that was the last message in thread
-    const messageId = getFirstNonCustomerEmailId(messages);
-    if (!messageId) {
-      console.error("No message ID found");
-      return;
-    }
-    console.log("messageId :", messageId);
-    const messageContent = await capi.getConversationsEmailMessage(
-      conversationId,
-      messageId
+    const listing = await capi.getConversationsEmailMessages(conversationId);
+    const nonCustomerMessages = (listing.entities ?? []).filter(
+      entity => entity.from?.email && !isCustomerEmail(entity.from.email)
     );
-    console.log("messageContent :", messageContent);
-    let body = "";
-    if (messageContent.htmlBody) {
-      body = messageContent.htmlBody;
-    } else {
-      body = messageContent.textBody;
+
+    if (nonCustomerMessages.length === 0) {
+      return "<p>No messages found in this conversation.</p>";
     }
-    return body;
+
+    const messageHtmlParts: string[] = [];
+
+    for (const preview of nonCustomerMessages) {
+      if (!preview.id) continue;
+
+      const msg = await capi.getConversationsEmailMessage(conversationId, preview.id);
+
+      const formatAddress = (a: platformClient.Models.EmailAddress) =>
+        a.name ? `${a.name} &lt;<a href="mailto:${a.email}">${a.email}</a>&gt;` : `<a href="mailto:${a.email}">${a.email}</a>`;
+
+      const from = msg.from?.email ? formatAddress(msg.from) : "—";
+
+      const formatAddressList = (list?: platformClient.Models.EmailAddress[]) =>
+        list && list.length > 0 ? list.map(formatAddress).join(", ") : null;
+
+      const toStr = formatAddressList(msg.to);
+      const ccStr = formatAddressList(msg.cc);
+
+      const date = preview.time
+        ? new Date(preview.time).toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })
+        : "";
+      const subject = msg.subject ?? preview.subject ?? "(no subject)";
+      const body = msg.htmlBody || (msg.textBody ? `<pre style="white-space:pre-wrap;font-family:inherit;margin:0">${msg.textBody}</pre>` : "");
+
+      messageHtmlParts.push(`
+        <div style="font-family:Calibri,Arial,sans-serif;font-size:11pt;color:#000">
+          <p style="margin:0"><b>From:</b> ${from}</p>
+          ${date ? `<p style="margin:0"><b>Sent:</b> ${date}</p>` : ""}
+          ${toStr ? `<p style="margin:0"><b>To:</b> ${toStr}</p>` : ""}
+          ${ccStr ? `<p style="margin:0"><b>CC:</b> ${ccStr}</p>` : ""}
+          <p style="margin:0"><b>Subject:</b> ${subject}</p>
+          <br>
+          ${body}
+        </div>`);
+    }
+
+    return messageHtmlParts.join('<hr style="border:none;border-top:1px solid #d1d5db;margin:16px 0">');
   } catch (error) {
-    console.log(error);
+    console.error("Failed to load conversation thread:", error);
+    return "<p>Failed to load conversation thread.</p>";
   }
 }
 
@@ -1023,24 +1119,32 @@ async function getConversationPreview(conversationId: string) {
 //   return null; // Return null if no such ID is found
 // }
 
-function getFirstNonCustomerEmailId(data:platformClient.Models.EmailMessagePreviewListing) {
-  // Find the first entity where from.email domain is not bigbank.ee or bigbank.lv or other country as well as not tootukassa or not ergo or not seb
- if (!data.entities) {
-    return null;
-  }
-  const firstNonCustomer = data.entities.find(entity => {
-    if (!entity.from || !entity.from.email) {
-      return null;
-    }
-    
-    const email = entity.from.email.toLowerCase();
-    const domain = email.split('@')[1];
-    
-    return domain !== 'bigbank.ee'  && domain !== 'bigbank.lv' && domain !== 'bigbank.lt' && domain !== 'bigbank.at' && domain !== 'bigbank.fi' && domain !== 'bigbank.se'&& domain !== 'bigbank.de' && domain !== 'bigbank.bg' && domain !== 'bigbank.nl' && domain !=='sissenoudekeskus.ee'&& domain !== 'seb.ee' && domain !== 'seb.lv' && domain !== 'seb.lt' ;
-  });
-  
-  return firstNonCustomer ? firstNonCustomer.id : data.entities[data.entities.length - 1].id;
+const CUSTOMER_DOMAINS = new Set([
+  'bigbank.ee', 'bigbank.lv', 'bigbank.lt', 'bigbank.at', 'bigbank.fi',
+  'bigbank.se', 'bigbank.de', 'bigbank.bg', 'bigbank.nl',
+  'sissenoudekeskus.ee', 'seb.ee', 'seb.lv', 'seb.lt'
+]);
+
+function isCustomerEmail(email: string | undefined): boolean {
+  if (!email) return false;
+  const domain = email.toLowerCase().split('@')[1];
+  return CUSTOMER_DOMAINS.has(domain);
 }
+
+// function getFirstNonCustomerEmailId(data: platformClient.Models.EmailMessagePreviewListing) {
+//   // Find the first entity where from.email domain is not bigbank.ee or bigbank.lv or other country as well as not tootukassa or not ergo or not seb
+//   if (!data.entities) {
+//     return null;
+//   }
+//   const firstNonCustomer = data.entities.find(entity => {
+//     if (!entity.from || !entity.from.email) {
+//       return null;
+//     }
+//     return !isCustomerEmail(entity.from.email);
+//   });
+
+//   return firstNonCustomer ? firstNonCustomer.id : data.entities[data.entities.length - 1].id;
+// }
 
 async function claimEmail(conversationId: string, participantId: string) {
   // if (selectedStatus !== "In Queue") {
@@ -1143,6 +1247,7 @@ function populateQueueStats(emailList: EmailListElement[]) {
   const oldestMessage: Record<string, number> = {};
   for (const email of emailList) {
     const queueName = email.queue || "Unknown";
+    if (queueName=="Unknown") continue
     counts[queueName] = (counts[queueName] || 0) + 1;
     const msgTime = email.lastMessage ? new Date(email.lastMessage).getTime() : Date.now();
     if (oldestMessage[queueName] === undefined || msgTime < oldestMessage[queueName]) {
@@ -1168,6 +1273,24 @@ function populateQueueStats(emailList: EmailListElement[]) {
     tr.innerHTML = `<td>${name}</td><td style="text-align: right;">${count}</td><td>${waitFormatted}</td>`;
     tbody.appendChild(tr);
   }
+
+  queueCounts = counts;
+  refreshQueueFilterLabels();
+}
+
+function refreshQueueFilterLabels() {
+  const filterList = document.getElementById("queue-filter-value");
+  if (!filterList) return;
+  const selectedValue = (filterList as HTMLSelectElement).value;
+  filterList.querySelectorAll("gux-option").forEach(option => {
+    const queueName = option.getAttribute("value")!;
+    if (!queueName) return;
+    const count = queueCounts[queueName] || 0;
+    const isSelected = queueName === selectedValue;
+    (option as HTMLElement).innerHTML = (!isSelected && count > 0)
+      ? `<span style="display:flex;justify-content:space-between;width:100%"><span>${queueName}</span><span>${count}</span></span>`
+      : queueName;
+  });
 }
 
 function renderQueuePieChart(data: [string, number][]) {
@@ -1186,7 +1309,7 @@ function renderQueuePieChart(data: [string, number][]) {
     const angle = (count / total) * 2 * Math.PI;
     const endAngle = startAngle + angle;
     const x1 = cx + r * Math.cos(startAngle), y1 = cy + r * Math.sin(startAngle);
-    const x2 = cx + r * Math.cos(endAngle),   y2 = cy + r * Math.sin(endAngle);
+    const x2 = cx + r * Math.cos(endAngle), y2 = cy + r * Math.sin(endAngle);
     const large = angle > Math.PI ? 1 : 0;
     paths += `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${large},1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${colors[i % colors.length]}" stroke="white" stroke-width="1.5"><title>${data[i][0]}: ${count}</title></path>`;
     startAngle = endAngle;
@@ -1309,7 +1432,7 @@ function addRow(
   T_from.innerHTML = `<gux-truncate>${from}</gux-truncate>`;
   T_to.innerHTML = `<gux-truncate>${to}</gux-truncate>`;
   T_subject.innerHTML = `<gux-truncate>${subject}</gux-truncate>`;
-  T_subject.style.maxWidth="500px"
+  T_subject.style.maxWidth = "500px"
   T_status.innerHTML = status;
   // T_routing_state.innerHTML = routing_state;
   // T_assigned_to.innerHTML = assigned_to;
@@ -1432,7 +1555,7 @@ async function previewEmail(id: string, participantId: string, status: string) {
   selectedParticipantId = participantId;
   selectedStatus = status;
   console.log("view button clicked", id);
-  const emailContent = await getConversationPreview(id);
+  const emailContent = await getConversationThread(id);
   if (!emailContent) {
     console.error("No email content found");
     return;
@@ -1445,9 +1568,9 @@ async function previewEmail(id: string, participantId: string, status: string) {
   document.getElementById("preview-modal-content")!.innerHTML = emailContent;
   // document.getElementById("claim-email")!.setAttribute("disabled", currentEmailClaim);
   document.getElementById("claim-email")!.setAttribute("disabled", "false");
-  status == "Interacting" || status == "On Hold" || status == "Disconnected"
+  status == "Interacting" || status == "On Hold"
     ? document.getElementById("claim-email")!.setAttribute("disabled", "true")
-    : null;
+    : status == "Disconnected" ? document.getElementById("claim-email")!.innerHTML = "Reconnect" : null;
 
   //@ts-expect-error
   document.getElementById("preview-modal")!.showModal();
@@ -1462,11 +1585,11 @@ async function disconnectEmail(conversationId: string) {
     const conversation = await capi.getConversation(conversationId);
 
 
-    const participantObject = conversation.participants.filter((p) => (p.purpose === "external"||p.purpose=="customer"))[0];
+    const participantObject = conversation.participants.filter((p) => (p.purpose === "external" || p.purpose == "customer"))[0];
     console.log("participantObject", participantObject);
-    const participantKey = `disconnected at ${new Date().toLocaleString()} by`
-    const body2 : { attributes: { [key: string]: string } } = { attributes: {} }
-    body2.attributes[participantKey] = user?.name||"Unknown"
+    const participantKey = `Disconnected in app`
+    const body2: { attributes: { [key: string]: string } } = { attributes: {} }
+    body2.attributes[participantKey] = `${new Date().toLocaleString()} by user?.name` || "Unknown"
     if (!participantObject.id) return
     await capi.patchConversationsEmailParticipantAttributes(conversationId, participantObject.id, body2)
 
@@ -1494,48 +1617,62 @@ async function disconnectEmail(conversationId: string) {
 }
 
 async function getUsers() {
-  // TODO - if more then 500 active users in ORG need setup paging
-  let users = await uapi.getUsers({
-    pageSize: 500,
-    expand: ["presence"],
-    state: "active",
-  });
-  if (!users) {
-    return;
-  }
-  // console.log(users);
-  let list = document.getElementById("listUsers")!;
-  for (const user of users.entities!) {
-    let item = document.createElement("gux-option");
-    item.innerText = user.name!;
-    item.setAttribute("value", user.id!);
-    list.appendChild(item);
+  try {
+    const list = document.getElementById("listUsers")!;
+    let pageNumber = 1;
+    let hasNextPage = true;
+
+    while (hasNextPage) {
+      const users = await uapi.getUsers({
+        pageSize: 500,
+        pageNumber,
+        // expand: ["presence"],
+        state: "active",
+      });
+
+      if (!users?.entities) break;
+
+      for (const user of users.entities) {
+        const item = document.createElement("gux-option");
+        item.innerText = user.name!;
+        item.setAttribute("value", user.id!);
+        list.appendChild(item);
+      }
+
+      hasNextPage = !!users.nextUri;
+      pageNumber++;
+    }
+  } catch (error) {
+    console.error("Failed to load users:", error);
   }
 }
 
 async function getQueues() {
-  // TODO - if more then 500 active users in ORG need setup paging
-  let queues = await rapi.getRoutingQueues({
-    pageSize: 500,
-  });
-  if (!queues) {
-    return;
-  }
-  // console.log(queues);
-  let list = document.getElementById("listQueues")!;
-  let filterList = document.getElementById("queue-filter-value")!;
-  for (const queue of queues.entities!) {
-    let item = document.createElement("gux-option");
-    item.innerText = queue.name!;
-    item.setAttribute("value", queue.id!);
-    list.appendChild(item);
-
-    if (queue.name!.toLowerCase().includes("email") || queue.name!.toLowerCase().includes("ootel")) {
-      let filterItem = document.createElement("gux-option");
-      filterItem.innerText = queue.name!;
-      filterItem.setAttribute("value", queue.name!);
-      filterList.appendChild(filterItem);
+  try {
+    let queues = await rapi.getRoutingQueues({
+      pageSize: 500,
+    });
+    if (!queues) {
+      return;
     }
+    // console.log(queues);
+    let list = document.getElementById("listQueues")!;
+    let filterList = document.getElementById("queue-filter-value")!;
+    for (const queue of queues.entities!) {
+      let item = document.createElement("gux-option");
+      item.innerText = queue.name!;
+      item.setAttribute("value", queue.id!);
+      list.appendChild(item);
+
+      if (queue.name!.toLowerCase().includes("email") || queue.name!.toLowerCase().includes("ootel")) {
+        let filterItem = document.createElement("gux-option");
+        filterItem.innerText = queue.name!;
+        filterItem.setAttribute("value", queue.name!);
+        filterList.appendChild(filterItem);
+      }
+    }
+  } catch (error) {
+    console.error("Failed to load queues:", error);
   }
 }
 
@@ -1712,8 +1849,8 @@ async function clearData() {
   }
   csvRows = [];
   document.getElementById(
-      "tCount"
-    )!.innerText = `Total Count: 0`;
+    "tCount"
+  )!.innerText = `Total Count: 0`;
 }
 
 function notification(type: string, message: string) {
@@ -1752,6 +1889,7 @@ async function buildTableRows(rows: any) {
 
       // create column names on first row
       for (const item of row) {
+        if (item === "Disconnected in App") continue;
         let th = document.createElement("th");
         th.setAttribute("data-column-name", item);
         th.style.textWrap = "auto";
@@ -1772,9 +1910,10 @@ async function buildTableRows(rows: any) {
       let tr = document.createElement("tr");
       let columnIndex = 0;
       for (const item of row) {
-        let column = document.createElement("td");
-        // Get the column name from the header
         const columnName = csvRows[0][columnIndex];
+        columnIndex++;
+        if (columnName === "Disconnected in App") continue;
+        let column = document.createElement("td");
         if (columnName === "Subject") {
           column.style.maxWidth = "200px";
           column.style.overflow = "hidden";
@@ -1807,21 +1946,20 @@ async function buildTableRows(rows: any) {
               "Disconnected"
             );
           };
-          row[1]=== "voice" ? btnPreview.setAttribute("disabled", "true") : null;
+          row[1] === "voice" ? btnPreview.setAttribute("disabled", "true") : null;
 
           column.appendChild(btnPreview);
         } else {
           column.innerHTML = item;
         }
         tr.appendChild(column);
-        columnIndex++;
       }
       tableBody.appendChild(tr);
     }
   }
 }
 
-async function getData() {
+async function getData(rowFilter?: (row: any[]) => boolean) {
   console.log("%cGetting data", "color: green");
   csvRows = [];
   document.getElementById("tableLocation")!.innerHTML = "";
@@ -1847,11 +1985,13 @@ async function getData() {
       )
       .filter((userId: string | undefined) => userId !== undefined);
     const uniqueUserIds = Array.from(new Set(userIds));
-    let opts = {
-      pageSize: 500,
-      id: uniqueUserIds,
-    };
-    const users = await uapi.getUsers(opts);
+    const allUserEntities: any[] = [];
+    for (let i = 0; i < uniqueUserIds.length; i += 100) {
+      const batch = uniqueUserIds.slice(i, i + 100);
+      const result = await uapi.getUsers({ pageSize: 100, id: batch });
+      if (result?.entities) allUserEntities.push(...result.entities);
+    }
+    const users = { entities: allUserEntities };
 
     for (const conv of conversations.conversations) {
 
@@ -1865,6 +2005,8 @@ async function getData() {
         csvRows[0].push("Start Date");
         csvRows[0].push("Open");
         csvRows[0].push("Preview");
+        csvRows[0].push("Disconnected in App");
+
       }
       // add the data to the row
       csvRows.push([conv.conversationId]);
@@ -1900,8 +2042,21 @@ async function getData() {
       );
       csvRows[csvRows.length - 1].push("OpenBtn");
       csvRows[csvRows.length - 1].push("PreviewBtn");
+
+      const firstCustomer = conv.participants.find(
+        (p: any) => p.purpose == "customer" || p.purpose == "external"
+      );
+      const disconnectedInApp = firstCustomer?.attributes
+        ? Object.keys(firstCustomer.attributes).some((key: string) =>
+            key.toLowerCase().startsWith("Disconnected")
+          )
+        : false;
+      csvRows[csvRows.length - 1].push(disconnectedInApp);
     }
-    await buildTableRows(csvRows);
+    const rowsToDisplay = rowFilter
+      ? [csvRows[0], ...csvRows.slice(1).filter(rowFilter)]
+      : csvRows;
+    await buildTableRows(rowsToDisplay);
     document.getElementById("loading")!.style.display = "none";
     // document.getElementById("download").style.display = "block";
   } catch (err) {
@@ -2005,7 +2160,8 @@ async function createJobExternalTag() {
 }
 
 async function createJobRemote() {
-  const job = await capi.postAnalyticsConversationsDetailsJobs({
+  let query: any =
+  {
     // prettier-ignore
     interval: `${(document.getElementById('datepicker') as HTMLInputElement).value.split('/')[0]}T00:00:00${(document.getElementById('timeZone') as HTMLInputElement).value}/${(document.getElementById('datepicker') as HTMLInputElement).value.split('/')[1]}T23:59:59${(document.getElementById('timeZone') as HTMLInputElement).value}`,
     segmentFilters: [
@@ -2013,14 +2169,23 @@ async function createJobRemote() {
         type: "and",
         predicates: [
           {
-            dimension: "remote",
-            value: (document.getElementById("input") as HTMLInputElement).value,
+            dimension: "mediaType",
+            value: "email",
           },
         ],
       },
     ],
     orderBy: "conversationStart",
-  });
+  }
+  let searchString = (document.getElementById("input") as HTMLInputElement).value
+  if (searchString){
+    query.segmentFilters[0].predicates.push =  {
+            dimension: "remote",
+            value: (document.getElementById("input") as HTMLInputElement).value,
+          }
+    
+  }
+  const job = await capi.postAnalyticsConversationsDetailsJobs(query);
   return job;
 }
 
@@ -2063,4 +2228,72 @@ async function getJobResults(jobId: any) {
   }
 }
 
+async function reconnectEmail(conversationId:string) {
+  try {
+    await capi.postConversationsEmailReconnect(conversationId);
+  } catch (error: any) {
+    if (error?.code === 'email.reconnect.expired' || error?.status === 400) {
+      // Conversation is expired — create a new outbound email with the original thread content
+      console.warn("Reconnect not available, creating new conversation:", error?.message ?? error);
+      if (!user?.username?.includes("adventus"))
+      // remove return statement to enable reconnect
+      return
+      else{
+      const emailConversation = await capi.getConversation(conversationId);
 
+      const externalParticipant = emailConversation.participants?.find(
+        p => p.purpose === 'external' || p.purpose === 'customer'
+      );
+      const acdParticipant = emailConversation.participants?.find(p => p.purpose === 'acd');
+
+      const toAddress = externalParticipant?.address;
+      const toName = externalParticipant?.name;
+      const queueId = acdParticipant?.queueId;
+
+      const messages = await capi.getConversationsEmailMessages(conversationId);
+      const subject = messages.entities?.[0]?.subject ?? "(no subject)";
+
+      const threadHtml = await getConversationThread(conversationId);
+
+      if (!toAddress || !queueId) {
+        console.error("Cannot create new conversation: missing customer address or queue", { toAddress, queueId });
+        return;
+      }
+
+      const createdConversation = await capi.postConversationsEmails({
+        provider: "PureCloud Email",
+        queueId:"2a40a655-f926-47ca-b2b3-3f0cee219551",
+        toAddress,
+        toName,
+        subject,
+        direction:"OUTBOUND",
+        // htmlBody: `<br><br><br>${threadHtml}`
+      });
+      if (!createdConversation.id){
+        console.log("error creating new conversation")
+        return
+      }
+      const conversationDraft = await capi.getConversationsEmailMessagesDraft(createdConversation.id)
+      const initialDraft = conversationDraft.htmlBody
+      conversationDraft.htmlBody = `${initialDraft}<br><br><br>${threadHtml}`
+      await capi.putConversationsEmailMessagesDraft(createdConversation.id, conversationDraft)
+      const newConversation = await capi.getConversationsEmail(createdConversation.id)
+      if (!newConversation.participants) return
+      const agentParticipant = newConversation.participants[0]!.id
+      if (!agentParticipant) return
+      // parking new conversation
+      await capi.patchConversationsEmailParticipant(createdConversation.id, agentParticipant, {state: "PARKED"})
+      await capi.patchConversationsEmailParticipantParkingstate(createdConversation.id, agentParticipant, {state: "CONNECTED"})
+      return;
+    }
+    console.log("Error reconnecting", error);
+  }
+  } finally {
+
+//@ts-ignore
+       document.getElementById("preview-modal")!.close();
+  }
+
+
+  
+}
