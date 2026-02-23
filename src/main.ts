@@ -641,7 +641,7 @@ function extractEmailData(
   let emailListPart = [];
   if (emails) {
     for (const email of emails) {
-      console.log("email", email);
+      // console.log("email", email);
       const customerParticipant = email.participants?.filter(
         (p) => p.purpose == "customer" || p.purpose == "external"
       )[0];
@@ -2179,12 +2179,13 @@ async function createJobRemote() {
   }
   let searchString = (document.getElementById("input") as HTMLInputElement).value
   if (searchString){
-    query.segmentFilters[0].predicates.push =  {
+    query.segmentFilters[0].predicates.push ( {
             dimension: "remote",
             value: (document.getElementById("input") as HTMLInputElement).value,
-          }
+          })
     
   }
+  console.log("qwery", query)
   const job = await capi.postAnalyticsConversationsDetailsJobs(query);
   return job;
 }
