@@ -2048,9 +2048,10 @@ async function getData(rowFilter?: (row: any[]) => boolean) {
       );
       const disconnectedInApp = firstCustomer?.attributes
         ? Object.keys(firstCustomer.attributes).some((key: string) =>
-            key.toLowerCase().startsWith("Disconnected")
+            key.toLowerCase().startsWith("disconnected")
           )
         : false;
+    console.log("disconnected in app", firstCustomer?.attributes)
       csvRows[csvRows.length - 1].push(disconnectedInApp);
     }
     const rowsToDisplay = rowFilter
@@ -2168,10 +2169,7 @@ async function createJobRemote() {
       {
         type: "and",
         predicates: [
-          {
-            dimension: "mediaType",
-            value: "email",
-          },
+         
         ],
       },
     ],
