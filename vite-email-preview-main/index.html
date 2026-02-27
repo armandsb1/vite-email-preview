@@ -68,21 +68,6 @@
                     <gux-option value="Parked">Parked</gux-option>
                     <gux-option value="Alerting">Alerting</gux-option>
                     <gux-option value="On Hold">On Hold</gux-option>
-                    <!-- <gux-option value="In workflow">In workflow</gux-option> -->
-                  </gux-listbox>
-                </gux-dropdown>
-                <gux-dropdown
-                  id="queue-filter-field"
-                  style="width: 220px"
-                  filter-type="starts-with"
-                  placeholder="Filter by queue"
-                >
-                  <gux-listbox
-                    aria-label="input"
-                    name="queue-filter-field"
-                    id="queue-filter-value"
-                  >
-                    <gux-option value="">All</gux-option>
                   </gux-listbox>
                 </gux-dropdown>
               </div>
@@ -93,10 +78,6 @@
                   decorative
                 ></gux-icon>
                 <span id="refresh">Refresh</span>
-              </gux-button>
-              <gux-button accent="secondary" id="queue-stats-toggle">
-                <gux-icon icon-name="fa/chart-bar-regular" decorative></gux-icon>
-                Queue stats
               </gux-button>
             </div>
             <div class="toolbar-right">
@@ -148,25 +129,6 @@
 
             </div>
           </div>
-
-          <div id="queue-stats-panel" style="display: none; padding: 8px 0; gap: 24px; align-items: flex-start;">
-            <gux-table object-table id="queue-stats-table">
-              <table style="inline-size: 600px; table-layout: auto" slot="data">
-                <thead>
-                  <tr data-row-id="head">
-                    <th data-column-name="queue-name">Queue name<gux-sort-control /></th>
-                    <th data-column-name="queue-count" aria-sort="descending">Emails<gux-sort-control /></th>
-                    <th data-column-name="queue-longest-wait">Longest wait<gux-sort-control /></th>
-                    <th data-column-name="queue-avg-wait">Avg wait<gux-sort-control /></th>
-                  </tr>
-                </thead>
-                <tbody id="queue-stats-tbody"></tbody>
-              </table>
-            </gux-table>
-            <div id="queue-stats-chart"></div>
-          </div>
-
-          <div id="filter-info-bar" style="display:none; padding: 6px 12px; margin-bottom: 6px; border-radius: 4px; font-size: 13px; background: var(--gse-ui-callout-info-background, #e8f4fd); border: 1px solid var(--gse-ui-callout-info-border, #b3d9f7);"></div>
 
           <gux-table object-table selectable-rows id="sortable-table">
             <table style="inline-size: 100%; table-layout: auto" slot="data">
@@ -277,8 +239,11 @@
             <gux-button style="padding: 8px" accent="secondary" id="months24"
               >24 Months</gux-button
             >
-            <gux-button style="padding: 8px" accent="secondary" id="getDisconnected"
-              >Disconnected in app</gux-button
+            <gux-button style="padding: 8px" accent="primary" id="getData"
+              >Search</gux-button
+            >
+            <gux-button style="padding: 8px" accent="secondary" id="clearData"
+              >Clear</gux-button
             >
           </div>
           <div style="display: flex">
@@ -303,13 +268,6 @@
               <input id="input" type="search" slot="input" />
               <label slot="label">Value</label>
             </gux-form-field-search>
-                        <gux-button style="padding: 8px" accent="primary" id="getData"
-              >Search</gux-button
-            >
-            <gux-button style="padding: 8px" accent="secondary" id="clearData"
-              >Clear</gux-button
-            >
-
             <h3 id="tCount" style="margin: auto">Total Count: 0</h3>
             <h3 id="lakeTime" style="margin: auto"></h3>
           </div>
@@ -351,7 +309,7 @@
 
     <gux-modal id="delete-modal" size="medium">
       <div slot="content" id="preview-modal-content">
-        <p id="delete-modal-message">Are you sure to disconnect selected emails?</p>
+        <p>Are you sure to disconnect selected emails?</p>
       </div>
       <gux-cta-group dangerous slot="footer" align="end" danger variant>
         <gux-button slot="primary" id="delete-email-modal-button" autofocus
