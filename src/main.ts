@@ -1,5 +1,5 @@
 import platformClient from "purecloud-platform-client-v2";
-import { registerSparkComponents } from "genesys-spark";
+import { registerSparkComponents, registerSparkChartComponents } from "genesys-spark";
 import ClientApp from "purecloud-client-app-sdk";
 
 import { conversationDetailQuery, EmailListElement } from "./types";
@@ -44,6 +44,7 @@ let user: platformClient.Models.UserMe | null = null;
 let selectedConversationId = "";
 let selectedParticipantId = "";
 let queueCounts: Record<string, number> = {};
+let queueNameById: Record<string, string> = {};
 // @ts-ignore
 let selectedStatus = "";
 
@@ -552,6 +553,7 @@ document.getElementById("tbody")!.addEventListener("dblclick", function (e) {
 
 async function loadSparkComponents() {
   await registerSparkComponents();
+  registerSparkChartComponents();
 }
 
 start();
@@ -575,7 +577,7 @@ async function start() {
     console.log("user", user);
     //GET Active Emails
     getUsers();
-    getQueues();
+    await getQueues();
     getActiveEmails();
     getUTCOffset();
     getLakeTime();
@@ -594,7 +596,11 @@ async function getActiveEmails() {
   document.getElementById("loading")!.style.display = "block";
 
   try {
-    const conversations = await processEmailQuery();
+    const [conversations, todayOffered, hourlyData] = await Promise.all([
+      processEmailQuery(),
+      getQueueTodayOffered(),
+      getEmailsOfferedByHour(),
+    ]);
     console.log("conversations extracted", conversations.conversations);
     if (!conversations) {
       console.log("No active emails found");
@@ -661,7 +667,8 @@ async function getActiveEmails() {
     document.getElementById("loading")!.style.display = "none";
 
     populateTableData(emailsList);
-    populateQueueStats(emailsList);
+    populateQueueStats(emailsList, todayOffered);
+    renderHourlyLineChart(hourlyData);
 
     const searchValue = (
       document.querySelector("[name=search-field]") as HTMLInputElement
@@ -1348,7 +1355,7 @@ function populateTableData(emailList: EmailListElement[]) {
   document.getElementById("loading")!.style.display = "none";
 }
 
-function populateQueueStats(emailList: EmailListElement[]) {
+function populateQueueStats(emailList: EmailListElement[], todayOffered: Record<string, number> = {}) {
   const tbody = document.getElementById("queue-stats-tbody");
   if (!tbody) return;
   tbody.innerHTML = "";
@@ -1393,9 +1400,11 @@ function populateQueueStats(emailList: EmailListElement[]) {
     const tr = document.createElement("tr");
     tr.style.cursor = "pointer";
     tr.dataset.queue = name;
+    const todayCount = todayOffered[name] ?? 0;
     tr.dataset.waitMs = String(waitMs);
     tr.dataset.avgMs = String(avgWaitMs);
-    tr.innerHTML = `<td>${name}</td><td style="text-align: right;">${count}</td><td>${waitFormatted}</td><td>${avgWaitFormatted}</td>`;
+    tr.dataset.today = String(todayCount);
+    tr.innerHTML = `<td>${name}</td><td style="text-align: right;">${count}</td><td>${waitFormatted}</td><td>${avgWaitFormatted}</td><td style="text-align: right;">${todayCount}</td>`;
     tbody.appendChild(tr);
   }
 
@@ -1420,54 +1429,27 @@ function refreshQueueFilterLabels() {
 }
 
 function renderQueuePieChart(data: [string, number][]) {
-  const container = document.getElementById("queue-stats-chart");
-  if (!container) return;
+  const chart = document.getElementById("queue-stats-chart") as any;
+  if (!chart) return;
 
-  const total = data.reduce((sum, [, c]) => sum + c, 0);
-  if (total === 0) {
-    container.innerHTML = "";
-    return;
+  const chartData = {
+    values: data.map(([category, value]) => ({ category, value })),
+  };
+
+  const apply = () => {
+    chart.showTooltip = true;
+    chart.tooltipOptions = {
+      formatTooltip: (datum: any, sanitize: (v: unknown) => string) =>
+        `<table><tr><td class="key">Queue</td><td class="value">${sanitize(datum.category)}</td></tr><tr><td class="key">Emails</td><td class="value">${sanitize(String(datum.value))}</td></tr></table>`,
+    };
+    chart.chartData = chartData;
+  };
+
+  if (customElements.get("gux-chart-donut-beta")) {
+    apply();
+  } else {
+    customElements.whenDefined("gux-chart-donut-beta").then(apply);
   }
-
-  const colors = [
-    "#4e79a7",
-    "#f28e2b",
-    "#e15759",
-    "#76b7b2",
-    "#59a14f",
-    "#bab0ac",
-  ];
-  const cx = 110,
-    cy = 110,
-    r = 90;
-
-  let paths = "";
-  let startAngle = -Math.PI / 2;
-  data.forEach(([, count], i) => {
-    const angle = (count / total) * 2 * Math.PI;
-    const endAngle = startAngle + angle;
-    const x1 = cx + r * Math.cos(startAngle),
-      y1 = cy + r * Math.sin(startAngle);
-    const x2 = cx + r * Math.cos(endAngle),
-      y2 = cy + r * Math.sin(endAngle);
-    const large = angle > Math.PI ? 1 : 0;
-    paths += `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${large},1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${colors[i % colors.length]}" stroke="white" stroke-width="1.5"><title>${data[i][0]}: ${count}</title></path>`;
-    startAngle = endAngle;
-  });
-
-  let legend = "";
-  data.forEach(([name, count], i) => {
-    const pct = Math.round((count / total) * 100);
-    legend += `<g transform="translate(0,${i * 28})">
-      <rect width="13" height="13" rx="2" fill="${colors[i % colors.length]}"/>
-      <text x="19" y="11" font-size="12" fill="currentColor">${name} — ${count} (${pct}%)</text>
-    </g>`;
-  });
-
-  container.innerHTML = `<svg viewBox="0 0 520 220" width="520" height="220" style="overflow:visible;font-family:inherit">
-    <g>${paths}</g>
-    <g transform="translate(230,10)">${legend}</g>
-  </svg>`;
 }
 
 document
@@ -1507,6 +1489,10 @@ document
         case "queue-avg-wait":
           aVal = parseInt(a.dataset.avgMs || "0", 10);
           bVal = parseInt(b.dataset.avgMs || "0", 10);
+          break;
+        case "queue-today":
+          aVal = parseInt(a.dataset.today || "0", 10);
+          bVal = parseInt(b.dataset.today || "0", 10);
           break;
         default:
           return 0;
@@ -1858,6 +1844,209 @@ async function getUsers() {
   }
 }
 
+async function getQueueTodayOffered(): Promise<Record<string, number>> {
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+  const interval = startOfDay.toISOString() + "/" + endOfDay.toISOString();
+
+  try {
+    const result = await capi.postAnalyticsConversationsAggregatesQuery({
+      interval,
+      groupBy: ["queueId"],
+      filter: {
+        type: "and",
+        predicates: [
+          { type: "dimension", dimension: "mediaType", value: "email" },
+        ],
+      },
+      metrics: ["nOffered"],
+    });
+
+    const offered: Record<string, number> = {};
+    for (const r of result.results ?? []) {
+      const queueId = r.group?.queueId;
+      if (!queueId) continue;
+      const queueName = queueNameById[queueId];
+      if (!queueName) continue;
+      const count =
+        r.data?.[0]?.metrics?.find((m: any) => m.metric === "nOffered")?.stats
+          ?.count ?? 0;
+      offered[queueName] = count;
+    }
+    console.log("offered", offered)
+    return offered;
+  } catch (error) {
+    console.error("Failed to get today's offered counts:", error);
+    return {};
+  }
+}
+
+async function getEmailsOfferedByHour(): Promise<
+  { hour: string; count: number }[]
+> {
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+  const interval = startOfDay.toISOString() + "/" + endOfDay.toISOString();
+
+  try {
+    const result = await capi.postAnalyticsConversationsAggregatesQuery({
+      interval,
+      granularity: "PT1H",
+      filter: {
+        type: "and",
+        predicates: [
+          { type: "dimension", dimension: "mediaType", value: "email" },
+        ],
+      },
+      metrics: ["nOffered"],
+    });
+
+    const countByHour: Record<number, number> = {};
+    for (const r of result.results ?? []) {
+      for (const d of r.data ?? []) {
+        const intervalStart = d.interval?.split("/")?.[0];
+        if (!intervalStart) continue;
+        const h = new Date(intervalStart).getHours();
+        const count =
+          d.metrics?.find((m: any) => m.metric === "nOffered")?.stats?.count ??
+          0;
+        countByHour[h] = (countByHour[h] || 0) + count;
+      }
+    }
+
+    const currentHour = now.getHours();
+    const hourlyData: { hour: string; count: number }[] = [];
+    for (let h = 0; h <= currentHour; h++) {
+      hourlyData.push({
+        hour: String(h).padStart(2, "0") + ":00",
+        count: countByHour[h] ?? 0,
+      });
+    }
+    console.log("hourly data", hourlyData)
+    return hourlyData;
+  } catch (error) {
+    console.error("Failed to get hourly offered counts:", error);
+    return [];
+  }
+}
+
+function renderHourlyLineChart(data: { hour: string; count: number }[]) {
+  const container = document.getElementById("queue-hourly-chart");
+  if (!container) return;
+
+  const W = 420;
+  const H = 230;
+  const margin = { top: 16, right: 16, bottom: 52, left: 40 };
+  const plotW = W - margin.left - margin.right;
+  const plotH = H - margin.top - margin.bottom;
+
+  const maxRaw = Math.max(...data.map((d) => d.count), 1);
+  const niceMax = maxRaw <= 5 ? 5 : Math.ceil(maxRaw / 5) * 5;
+  const yTicks = 4;
+
+  const barWidth = data.length > 0 ? plotW / data.length : plotW;
+  const barPad = Math.max(barWidth * 0.15, 2);
+
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("width", String(W));
+  svg.setAttribute("height", String(H));
+  svg.style.display = "block";
+
+  const g = document.createElementNS(ns, "g");
+  g.setAttribute("transform", `translate(${margin.left},${margin.top})`);
+  svg.appendChild(g);
+
+  // Y gridlines + labels
+  for (let i = 0; i <= yTicks; i++) {
+    const val = Math.round((niceMax / yTicks) * i);
+    const y = plotH - (val / niceMax) * plotH;
+
+    const line = document.createElementNS(ns, "line");
+    line.setAttribute("x1", "0");
+    line.setAttribute("y1", String(y));
+    line.setAttribute("x2", String(plotW));
+    line.setAttribute("y2", String(y));
+    line.setAttribute("stroke", "#e0e0e0");
+    line.setAttribute("stroke-width", "1");
+    g.appendChild(line);
+
+    const label = document.createElementNS(ns, "text");
+    label.setAttribute("x", "-6");
+    label.setAttribute("y", String(y));
+    label.setAttribute("text-anchor", "end");
+    label.setAttribute("dominant-baseline", "middle");
+    label.setAttribute("font-size", "11");
+    label.setAttribute("fill", "#888");
+    label.textContent = String(val);
+    g.appendChild(label);
+  }
+
+  // Bars + X labels
+  data.forEach((d, i) => {
+    const x = i * barWidth;
+    const barH = Math.max((d.count / niceMax) * plotH, d.count > 0 ? 1 : 0);
+    const y = plotH - barH;
+
+    const rect = document.createElementNS(ns, "rect");
+    rect.setAttribute("x", String(x + barPad));
+    rect.setAttribute("y", String(y));
+    rect.setAttribute("width", String(Math.max(barWidth - barPad * 2, 1)));
+    rect.setAttribute("height", String(barH));
+    rect.setAttribute("fill", "#1F6BDE");
+    rect.setAttribute("rx", "2");
+    g.appendChild(rect);
+
+    const cx = x + barWidth / 2;
+    const labelY = plotH + 8;
+    const text = document.createElementNS(ns, "text");
+    text.setAttribute("x", String(cx));
+    text.setAttribute("y", String(labelY));
+    text.setAttribute("text-anchor", "end");
+    text.setAttribute("transform", `rotate(-45, ${cx}, ${labelY})`);
+    text.setAttribute("font-size", "10");
+    text.setAttribute("fill", "#888");
+    text.textContent = d.hour;
+    g.appendChild(text);
+  });
+
+  // Y axis
+  const yAxis = document.createElementNS(ns, "line");
+  yAxis.setAttribute("x1", "0");
+  yAxis.setAttribute("y1", "0");
+  yAxis.setAttribute("x2", "0");
+  yAxis.setAttribute("y2", String(plotH));
+  yAxis.setAttribute("stroke", "#bbb");
+  yAxis.setAttribute("stroke-width", "1");
+  g.appendChild(yAxis);
+
+  // X axis
+  const xAxis = document.createElementNS(ns, "line");
+  xAxis.setAttribute("x1", "0");
+  xAxis.setAttribute("y1", String(plotH));
+  xAxis.setAttribute("x2", String(plotW));
+  xAxis.setAttribute("y2", String(plotH));
+  xAxis.setAttribute("stroke", "#bbb");
+  xAxis.setAttribute("stroke-width", "1");
+  g.appendChild(xAxis);
+
+  // Y axis title
+  const yTitle = document.createElementNS(ns, "text");
+  yTitle.setAttribute("x", String(-plotH / 2));
+  yTitle.setAttribute("y", "-30");
+  yTitle.setAttribute("text-anchor", "middle");
+  yTitle.setAttribute("transform", "rotate(-90)");
+  yTitle.setAttribute("font-size", "11");
+  yTitle.setAttribute("fill", "#888");
+  yTitle.textContent = "Offered";
+  g.appendChild(yTitle);
+
+  container.innerHTML = "";
+  container.appendChild(svg);
+}
+
 async function getQueues() {
   try {
     let queues = await rapi.getRoutingQueues({
@@ -1870,6 +2059,8 @@ async function getQueues() {
     let list = document.getElementById("listQueues")!;
     let filterList = document.getElementById("queue-filter-value")!;
     for (const queue of queues.entities!) {
+      queueNameById[queue.id!] = queue.name!;
+
       let item = document.createElement("gux-option");
       item.innerText = queue.name!;
       item.setAttribute("value", queue.id!);
