@@ -140,3 +140,30 @@ button:focus-visible {
   margin: 8px;
 }
 
+.drop {
+  width: 25dvw;
+  max-width: 200px;
+  display: block;
+  margin: 8px;
+}
+
+.loading {
+  display: none;
+  margin-left: 47%;
+}
+
+.gux-sticky-cell {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+
+.gux-sticky-cell-2 {
+  position: sticky;
+  left: 89px;
+  z-index: 1;
+}
+
+.gux-sticky-cell-header-style {
+  background-color: var(--gse-ui-dataTableItems-header-fixedBackgroundColor);
+}

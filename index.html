@@ -86,13 +86,9 @@
                   </gux-listbox>
                 </gux-dropdown>
               </div>
-              <gux-button>
-                <gux-icon
-                  id="refresh"
-                  icon-name="refresh"
-                  decorative
-                ></gux-icon>
-                <span id="refresh">Refresh</span>
+              <gux-button id="refresh">
+                <gux-icon icon-name="refresh" decorative></gux-icon>
+                <span>Refresh</span>
               </gux-button>
               <gux-button accent="secondary" id="queue-stats-toggle">
                 <gux-icon
@@ -112,13 +108,12 @@
                 >
                   <gux-listbox id="listQueues" aria-label="types"></gux-listbox>
                 </gux-dropdown>
-                <gux-button accent="secondary">
+                <gux-button accent="secondary" id="transfer-queue">
                   <gux-icon
                     icon-name="fa/arrow-right-to-bracket-regular"
                     decorative
-                    id="transfer-queue"
                   ></gux-icon>
-                  <span id="transfer-queue">Transfer to queue</span>
+                  <span>Transfer to queue</span>
                 </gux-button>
               </div>
               <div class="transfer-block">
@@ -130,24 +125,31 @@
                 >
                   <gux-listbox id="listUsers" aria-label="types"></gux-listbox>
                 </gux-dropdown>
-                <gux-button accent="secondary">
+                <gux-button accent="secondary" id="transfer-user">
                   <gux-icon
                     icon-name="fa/regular-user-circle-arrow-left"
                     decorative
-                    id="transfer-user"
                   ></gux-icon>
-                  <span id="transfer-user">Transfer to user</span>
+                  <span>Transfer to user</span>
                 </gux-button>
               </div>
 
-              <gux-button accent="danger">
-                <gux-icon
-                  icon-name="delete"
-                  decorative
-                  id="delete-emails"
-                ></gux-icon>
-                <span id="delete-emails">Delete</span>
+              <gux-button accent="danger" id="delete-emails">
+                <gux-icon icon-name="delete" decorative></gux-icon>
+                <span>Delete</span>
               </gux-button>
+
+              <gux-context-menu id="context-menu-1">
+                <gux-list-item id="set-column-visibility"
+                  >Set column visibility</gux-list-item
+                >
+                <gux-list-item id="set-sla-threshold"
+                  ><span>Set SLA threshold</span><gux-tooltip-beta>
+      <span slot="content">Processing time red color threshold </span>
+    </gux-tooltip-beta></gux-list-item
+                >
+                
+              </gux-context-menu>
             </div>
           </div>
 
@@ -194,9 +196,17 @@
               legend-position="right"
               legend-title="Queue"
               show-tooltip="false"
-              style="display: block; width: 462px; height: 286px; margin-left: 150px;"
+              style="
+                display: block;
+                width: 462px;
+                height: 286px;
+                margin-left: 150px;
+              "
             ></gux-chart-donut-beta>
-            <div id="queue-hourly-chart" style="width: 420px; height: 230px;"></div>
+            <div
+              id="queue-hourly-chart"
+              style="width: 420px; height: 230px"
+            ></div>
           </div>
 
           <div
@@ -238,10 +248,11 @@
                   <th data-column-name="status">Status</th>
 
                   <th data-column-name="last-agent">Last agent</th>
-                  <th data-column-name="first-queue" style="display: none">
+                  <th data-column-name="first-queue">
                     First queue
                   </th>
                   <th data-column-name="queue">Queue</th>
+                  <th data-column-name="external-tag">External Tag</th>
 
                   <th data-column-name="participant">Participant</th>
                   <th
@@ -313,6 +324,7 @@
               mode="range"
               value=""
               number-of-months="2"
+              format="dd/mm/yyyy"
             ></gux-datepicker>
             <gux-button style="padding: 8px" accent="secondary" id="months12"
               >12 Months</gux-button
@@ -411,131 +423,27 @@
         >
       </gux-cta-group>
     </gux-modal>
+    <gux-modal id="col-visibility-modal" size="small">
+      <div slot="title">Column visibility</div>
+      <div slot="content" id="col-visibility-checkboxes" style="display: flex; flex-direction: column; gap: 8px;"></div>
+      <gux-cta-group slot="footer" align="end">
+        <gux-button slot="primary" id="col-visibility-save">Apply</gux-button>
+        <gux-button slot="dismiss" onclick="document.getElementById('col-visibility-modal').close()">Cancel</gux-button>
+      </gux-cta-group>
+    </gux-modal>
 
-    <script></script>
+    <gux-modal id="sla-modal" size="small">
+      <div slot="title">Set SLA threshold</div>
+      <div slot="content" style="display: flex; align-items: center; gap: 8px;">
+        <gux-form-field-number>
+          <input slot="input" id="sla-days-input" type="number" min="1" max="365" />
+          <label slot="label">Days</label>
+        </gux-form-field-number>
+      </div>
+      <gux-cta-group slot="footer" align="end">
+        <gux-button slot="primary" id="sla-save-button">Save</gux-button>
+        <gux-button slot="dismiss" onclick="document.getElementById('sla-modal').close()">Cancel</gux-button>
+      </gux-cta-group>
+    </gux-modal>
   </body>
-  <style
-    onload="
-      (function () {
-        function ascending(a, b, columnIndex) {
-          const aDate = getDate(
-            a.querySelectorAll('td')[columnIndex].textContent,
-          );
-          const bDate = getDate(
-            b.querySelectorAll('td')[columnIndex].textContent,
-          );
-          return aDate - bDate;
-        }
-
-        function getDate(date) {
-          const [datePart, timePart] = date.split(',');
-          const [day, month, year] = datePart.split('/').map(Number);
-          const [hours, minutes] = timePart.split(':').map(Number);
-          return new Date(year, month - 1, day, hours, minutes);
-        }
-
-        function shuffle(a, b) {
-          return 0.5 - Math.random();
-        }
-
-        const table = document.querySelector('#sortable-table');
-
-        table.addEventListener('guxsortchanged', (event) => {
-          console.log('event', event.detail);
-          const { columnName, sortDirection } = event.detail;
-          const columns = Array.from(
-            table.querySelectorAll('thead tr th'),
-          ).forEach((column) => column.removeAttribute('aria-sort'));
-          const column = table.querySelector(
-            `thead tr th[data-column-name='${columnName}']`,
-          );
-          console.log('column', column);
-          column.setAttribute('aria-sort', sortDirection);
-          const tableBody = table.querySelector('tbody');
-          let columnIndex;
-          switch (columnName) {
-            case 'start-date':
-              columnIndex = 1;
-              break;
-            case 'endDate':
-              columnIndex = 2;
-              break;
-            default:
-              columnIndex = 1;
-              break;
-          }
-          switch (sortDirection) {
-            case 'ascending':
-              [...tableBody.children]
-                .sort((a, b) => ascending(a, b, columnIndex))
-                .forEach((node) => tableBody.appendChild(node));
-              break;
-            case 'descending':
-              [...tableBody.children]
-                .sort((a, b) => ascending(a, b, columnIndex))
-                .reverse()
-                .forEach((node) => tableBody.appendChild(node));
-              break;
-            default:
-              [...tableBody.children]
-                .sort(shuffle)
-                .forEach((node) => tableBody.appendChild(node));
-              break;
-          }
-        });
-      })()
-    "
-  >
-    .view {
-      display: none;
-    }
-    .view.active {
-      display: block;
-    }
-    .not-used {
-      -custom-noop: noop;
-    }
-
-    .gux-sticky-cell {
-      position: sticky;
-      left: 0;
-      z-index: 1;
-    }
-
-    .gux-sticky-cell-2 {
-      position: sticky;
-      left: 89px;
-      z-index: 1;
-    }
-
-    .gux-sticky-cell-header-style {
-      background-color: var(
-        --gse-ui-dataTableItems-header-fixedBackgroundColor
-      );
-    }
-    .drop {
-      width: 25dvw;
-      max-width: 200px;
-      display: block;
-      margin: 8px;
-    }
-    .btn {
-      margin: 8px;
-      align-self: center;
-    }
-    .btn_right {
-      align-self: center;
-      margin-left: auto;
-      margin-top: 8px;
-      margin-bottom: 8px;
-      margin-right: 8px;
-    }
-    .tbody {
-      min-height: 200px;
-    }
-    .loading {
-      display: none;
-      margin-left: 47%;
-    }
-  </style>
 </html>
