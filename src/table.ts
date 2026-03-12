@@ -1,6 +1,6 @@
 import { EmailListElement } from "./types";
 import { getSlaThresholdMs } from "./config";
-import { convertToDuration, formatShortDateTime, getColumnIndex } from "./utils";
+import { convertToDuration, formatShortDateTime, formatRemainingTime, getColumnIndex } from "./utils";
 
 type PreviewFn = (id: string, participantId: string, status: string) => void;
 type ClaimFn = (id: string, participantId: string) => void;
@@ -20,6 +20,7 @@ export function addRow(
   lastAgent: string,
   externalTag: string,
   processingState: string,
+  targetSla: string,
   onPreview: PreviewFn,
   onClaim: ClaimFn,
   participantId?: string,
@@ -101,6 +102,19 @@ export function addRow(
   processingStateCell.dataset.columnName = "processing-state";
   processingStateCell.innerHTML = `<gux-truncate>${processingState}</gux-truncate>`;
 
+  const remainingSlaCell = document.createElement("td");
+  remainingSlaCell.dataset.columnName = "remaining-sla";
+  if (targetSla) {
+    const remainingMs = new Date(targetSla).getTime() - Date.now();
+    remainingSlaCell.textContent = formatRemainingTime(remainingMs);
+    remainingSlaCell.dataset.sortValue = String(remainingMs);
+    if (remainingMs < 0) {
+      remainingSlaCell.style.backgroundColor = "lightcoral";
+    }
+  } else {
+    remainingSlaCell.dataset.sortValue = String(Number.MAX_SAFE_INTEGER);
+  }
+
   // Hidden participant id cell (read by transfer handlers)
   const participantCell = document.createElement("td");
   participantCell.dataset.columnName = "participant";
@@ -147,6 +161,7 @@ export function addRow(
     queueCell,
     externalTagCell,
     processingStateCell,
+    remainingSlaCell,
     participantCell,
     actionCell,
   );
@@ -176,6 +191,7 @@ export function populateTableData(
       email.lastAgent!,
       email.externalTag!,
       email.processingState!,
+      email.targetSla!,
       onPreview,
       onClaim,
       email.lastACDparticipant!,

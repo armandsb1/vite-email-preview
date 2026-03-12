@@ -123,6 +123,7 @@ export function extractEmailData(
       lastAgent: findInteractParticipant(agentParticipants as any, "name", "latest") ?? "",
       externalTag: (email as any).externalTag ?? "",
       processingState: "",
+      targetSla: "",
       lastACDparticipant: isQueueStatus
         ? findInteractParticipant(queueParticipants as any, "id", "latest") ?? ""
         : findInteractParticipant(agentParticipants as any, "id", "latest") ?? "",

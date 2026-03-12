@@ -151,7 +151,7 @@
 
               <gux-button accent="danger" id="delete-emails">
                 <gux-icon icon-name="delete" decorative></gux-icon>
-                <span>Delete</span>
+                <span>Disconnect</span>
               </gux-button>
 
               <gux-context-menu id="context-menu-1">
@@ -269,6 +269,9 @@
                   <th data-column-name="queue">Queue</th>
                   <th data-column-name="external-tag">External Tag</th>
                   <th data-column-name="processing-state">Processing State</th>
+                  <th data-column-name="remaining-sla" aria-sort="ascending">
+                    Remaining SLA<gux-sort-control />
+                  </th>
 
                   <th data-column-name="participant">Participant</th>
                   <th

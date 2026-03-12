@@ -49,6 +49,21 @@ export function getUTCOffset(): string {
   return `${sign}${String(absHours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
+/** Formats a remaining-time duration in ms as "Xd Yh Zm". Hours/minutes omitted when 0. */
+export function formatRemainingTime(ms: number): string {
+  const absMs = Math.abs(ms);
+  const totalMinutes = Math.floor(absMs / 60000);
+  const minutes = totalMinutes % 60;
+  const hours = Math.floor(totalMinutes / 60) % 24;
+  const days = Math.floor(totalMinutes / 60 / 24);
+
+  const parts: string[] = [];
+  if (days > 0) parts.push(`${days}d`);
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0) parts.push(`${minutes}m`);
+  return parts.length ? parts.join(" ") : "0m";
+}
+
 export function formatDateRange(monthsBack: number): string {
   const today = new Date();
   const from = new Date();

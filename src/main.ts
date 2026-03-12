@@ -142,7 +142,9 @@ async function getActiveEmails() {
       emailsList.map((e) => e.conversationId!).filter(Boolean),
     );
     for (const email of emailsList) {
-      email.processingState = processingStateMap[email.conversationId!] ?? "";
+      const attrs = processingStateMap[email.conversationId!];
+      email.processingState = attrs?.processingStatus ?? "";
+      email.targetSla = attrs?.targetSla ?? "";
     }
     populateStateFilterDropdown(emailsList);
 
@@ -584,16 +586,20 @@ function populateStateFilterDropdown(emailsList: { processingState?: string }[])
 
 async function fetchProcessingStates(
   conversationIds: string[],
-): Promise<Record<string, string>> {
-  const map: Record<string, string> = {};
+): Promise<Record<string, { processingStatus: string; targetSla: string }>> {
+  const map: Record<string, { processingStatus: string; targetSla: string }> = {};
   const chunkSize = PAGE_SIZE;
   for (let i = 0; i < conversationIds.length; i += chunkSize) {
     const chunk = conversationIds.slice(i, i + chunkSize);
     const result = await getCustomAttributes(chunk);
     for (const entity of (result as any)?.results ?? []) {
       const id: string = entity.conversationId;
-      const state: string = entity.customAttributes?.processingStatus ?? "";
-      if (id) map[id] = state;
+      if (id) {
+        map[id] = {
+          processingStatus: entity.customAttributes?.processingStatus ?? "",
+          targetSla: entity.customAttributes?.targetSla ?? "",
+        };
+      }
     }
   }
   return map;
@@ -816,6 +822,11 @@ document.getElementById("delete-emails")!.addEventListener("click", () => {
 document
   .getElementById("delete-email-modal-button")!
   .addEventListener("click", async () => {
+    const btn = document.getElementById("delete-email-modal-button")!;
+    const msg = document.getElementById("delete-modal-message")!;
+    btn.setAttribute("disabled", "true");
+    msg.textContent = "Working on it...";
+
     for (const rowId of getSelectedRowIds()) {
       await disconnectEmail(rowId);
     }
@@ -823,6 +834,8 @@ document
     getActiveEmails();
     // @ts-ignore
     document.getElementById("delete-modal")!.close();
+
+    btn.removeAttribute("disabled");
   });
 
 // Preview modal: claim/reconnect action
@@ -909,6 +922,7 @@ const TOGGLEABLE_COLUMNS = [
   { name: "queue", label: "Queue" },
   { name: "external-tag", label: "External Tag", defaultVisible: false },
   { name: "processing-state", label: "Processing State", defaultVisible: false },
+  { name: "remaining-sla", label: "Remaining SLA", defaultVisible: false },
 ];
 
 function getStoredColVisibility(): Record<string, boolean> {
@@ -1042,6 +1056,18 @@ function wireSortableTableHandler() {
     if (col) col.setAttribute("aria-sort", sortDirection);
 
     const tableBody = table.querySelector("tbody")!;
+
+    if (columnName === "remaining-sla") {
+      const colIdx = getColumnIndex("remaining-sla");
+      const sorted = [...tableBody.children].sort((a, b) => {
+        const aVal = Number((a.querySelectorAll("td")[colIdx] as HTMLElement)?.dataset.sortValue ?? Number.MAX_SAFE_INTEGER);
+        const bVal = Number((b.querySelectorAll("td")[colIdx] as HTMLElement)?.dataset.sortValue ?? Number.MAX_SAFE_INTEGER);
+        return sortDirection === "ascending" ? aVal - bVal : bVal - aVal;
+      });
+      sorted.forEach((node) => tableBody.appendChild(node));
+      return;
+    }
+
     let columnIndex: number;
     switch (columnName) {
       case "start-date":
