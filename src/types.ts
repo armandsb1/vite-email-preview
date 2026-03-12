@@ -35,6 +35,7 @@ export type EmailListElement = {
   firstQueue: string | undefined;
   queue: string | undefined;
   externalTag: string | undefined;
+  processingState: string | undefined;
   status: string | undefined;
   subject: string | undefined;
   to: string | undefined;

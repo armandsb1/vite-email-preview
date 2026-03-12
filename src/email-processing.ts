@@ -122,6 +122,7 @@ export function extractEmailData(
         ]?.metrics?.find((m) => m.name === "nConnected")?.emitDate,
       lastAgent: findInteractParticipant(agentParticipants as any, "name", "latest") ?? "",
       externalTag: (email as any).externalTag ?? "",
+      processingState: "",
       lastACDparticipant: isQueueStatus
         ? findInteractParticipant(queueParticipants as any, "id", "latest") ?? ""
         : findInteractParticipant(agentParticipants as any, "id", "latest") ?? "",

@@ -85,6 +85,21 @@
                     <gux-option value="">All</gux-option>
                   </gux-listbox>
                 </gux-dropdown>
+                <div id="state-filter-wrapper" style="display: none;">
+                  <gux-dropdown
+                    id="state-filter-field"
+                    style="min-width: 140px"
+                    placeholder="Filter by state"
+                  >
+                    <gux-listbox
+                      aria-label="input"
+                      name="state-filter-field"
+                      id="state-filter-value"
+                    >
+                      <gux-option value="">All</gux-option>
+                    </gux-listbox>
+                  </gux-dropdown>
+                </div>
               </div>
               <gux-button id="refresh">
                 <gux-icon icon-name="refresh" decorative></gux-icon>
@@ -253,6 +268,7 @@
                   </th>
                   <th data-column-name="queue">Queue</th>
                   <th data-column-name="external-tag">External Tag</th>
+                  <th data-column-name="processing-state">Processing State</th>
 
                   <th data-column-name="participant">Participant</th>
                   <th

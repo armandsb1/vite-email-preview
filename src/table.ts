@@ -19,6 +19,7 @@ export function addRow(
   queue: string,
   lastAgent: string,
   externalTag: string,
+  processingState: string,
   onPreview: PreviewFn,
   onClaim: ClaimFn,
   participantId?: string,
@@ -96,6 +97,10 @@ export function addRow(
   externalTagCell.dataset.columnName = "external-tag";
   externalTagCell.innerHTML = `<gux-truncate>${externalTag}</gux-truncate>`;
 
+  const processingStateCell = document.createElement("td");
+  processingStateCell.dataset.columnName = "processing-state";
+  processingStateCell.innerHTML = `<gux-truncate>${processingState}</gux-truncate>`;
+
   // Hidden participant id cell (read by transfer handlers)
   const participantCell = document.createElement("td");
   participantCell.dataset.columnName = "participant";
@@ -141,6 +146,7 @@ export function addRow(
     firstQueueCell,
     queueCell,
     externalTagCell,
+    processingStateCell,
     participantCell,
     actionCell,
   );
@@ -169,6 +175,7 @@ export function populateTableData(
       email.queue!,
       email.lastAgent!,
       email.externalTag!,
+      email.processingState!,
       onPreview,
       onClaim,
       email.lastACDparticipant!,
@@ -182,10 +189,12 @@ export function filterTable(
   searchValue: string,
   status: string,
   queue: string = "",
+  state: string = "",
 ) {
   const rows = document.querySelectorAll("#tbody tr");
   const statusColumnIndex = getColumnIndex("status");
   const queueColumnIndex = getColumnIndex("queue");
+  const stateColumnIndex = getColumnIndex("processing-state");
 
   if (statusColumnIndex === -1) {
     console.error("Status column not found");
@@ -215,16 +224,26 @@ export function filterTable(
       }
     }
 
+    if (state && stateColumnIndex !== -1) {
+      if (
+        cells[stateColumnIndex]?.textContent?.toLowerCase() !==
+        state.toLowerCase()
+      ) {
+        match = false;
+      }
+    }
+
     (row as HTMLElement).style.display = match ? "table-row" : "none";
   });
 
-  updateFilterInfo(searchValue, status, queue);
+  updateFilterInfo(searchValue, status, queue, state);
 }
 
 export function updateFilterInfo(
   searchValue: string,
   status: string,
   queue: string,
+  state: string = "",
 ) {
   const bar = document.getElementById("filter-info-bar");
   if (!bar) return;
@@ -237,7 +256,7 @@ export function updateFilterInfo(
 
   bar.style.display = "block";
 
-  if (!searchValue && !status && !queue) {
+  if (!searchValue && !status && !queue && !state) {
     bar.textContent = `Showing ${total} emails`;
     return;
   }
@@ -246,6 +265,7 @@ export function updateFilterInfo(
   if (searchValue) parts.push(`Search: "${searchValue}"`);
   if (status) parts.push(`Status: ${status}`);
   if (queue) parts.push(`Queue: ${queue}`);
+  if (state) parts.push(`State: ${state}`);
 
   bar.textContent = `${parts.join(" · ")} · Showing ${visible} of ${total} emails`;
 }
@@ -294,6 +314,7 @@ export function getActiveFilterValues(): {
   search: string;
   status: string;
   queue: string;
+  state: string;
 } {
   return {
     search: (document.querySelector("[name=search-field]") as HTMLInputElement)
@@ -304,5 +325,8 @@ export function getActiveFilterValues(): {
     queue: (
       document.querySelector("[name=queue-filter-field]") as HTMLSelectElement
     ).value,
+    state: (
+      document.querySelector("[name=state-filter-field]") as HTMLSelectElement | null
+    )?.value ?? "",
   };
 }

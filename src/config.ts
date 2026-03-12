@@ -15,7 +15,7 @@ export const ACTIVE_EMAIL_LOOKBACK_WINDOWS = [
   { startDaysAgo: 90, endDaysAgo: 60 },
 ] as const;
 
-export const PAGE_SIZE = 100;
+export const PAGE_SIZE = 50;
 export const USERS_PAGE_SIZE = 500;
 export const QUEUES_PAGE_SIZE = 500;
 
