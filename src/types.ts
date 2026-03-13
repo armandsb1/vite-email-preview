@@ -37,6 +37,7 @@ export type EmailListElement = {
   externalTag: string | undefined;
   processingState: string | undefined;
   targetSla: string | undefined;
+  parkedSince: string | undefined;
   status: string | undefined;
   subject: string | undefined;
   to: string | undefined;

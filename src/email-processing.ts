@@ -124,6 +124,15 @@ export function extractEmailData(
       externalTag: (email as any).externalTag ?? "",
       processingState: "",
       targetSla: "",
+      parkedSince: status === "Parked"
+        ? (agentParticipants ?? []).flatMap((p) =>
+            (p.sessions ?? []).flatMap((s) =>
+              (s.segments ?? [])
+                .filter((seg) => (seg as any).segmentType === "parked" && !(seg as any).segmentEnd)
+                .map((seg) => (seg as any).segmentStart as string),
+            ),
+          )[0] ?? undefined
+        : undefined,
       lastACDparticipant: isQueueStatus
         ? findInteractParticipant(queueParticipants as any, "id", "latest") ?? ""
         : findInteractParticipant(agentParticipants as any, "id", "latest") ?? "",

@@ -20,4 +20,4 @@ export const USERS_PAGE_SIZE = 500;
 export const QUEUES_PAGE_SIZE = 500;
 
 // Queue names containing these substrings appear in the queue filter dropdown
-export const EMAIL_QUEUE_FILTER_KEYWORDS = ["email", "ootel"];
+export const EMAIL_QUEUE_FILTER_KEYWORDS = ["email", "ootel", "test"];

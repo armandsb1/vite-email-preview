@@ -683,9 +683,10 @@ async function getQueues() {
       item.setAttribute("value", queue.id!);
       list.appendChild(item);
 
-      const isEmailQueue = EMAIL_QUEUE_FILTER_KEYWORDS.some((kw) =>
-        queue.name!.toLowerCase().includes(kw),
-      );
+      const isEmailQueue = EMAIL_QUEUE_FILTER_KEYWORDS.length === 0 ||
+        EMAIL_QUEUE_FILTER_KEYWORDS.some((kw) =>
+          queue.name!.toLowerCase().includes(kw),
+        );
       if (isEmailQueue) {
         const filterItem = document.createElement("gux-option");
         filterItem.innerText = queue.name!;
@@ -926,6 +927,7 @@ const TOGGLEABLE_COLUMNS = [
   { name: "external-tag", label: "External Tag", defaultVisible: false },
   { name: "processing-state", label: "Processing State", defaultVisible: false },
   { name: "remaining-sla", label: "Remaining SLA", defaultVisible: false },
+  { name: "parked-duration", label: "Parked Duration", defaultVisible: false },
 ];
 
 function getStoredColVisibility(): Record<string, boolean> {
@@ -1060,8 +1062,8 @@ function wireSortableTableHandler() {
 
     const tableBody = table.querySelector("tbody")!;
 
-    if (columnName === "remaining-sla") {
-      const colIdx = getColumnIndex("remaining-sla");
+    if (columnName === "remaining-sla" || columnName === "parked-duration") {
+      const colIdx = getColumnIndex(columnName);
       const sorted = [...tableBody.children].sort((a, b) => {
         const aVal = Number((a.querySelectorAll("td")[colIdx] as HTMLElement)?.dataset.sortValue ?? Number.MAX_SAFE_INTEGER);
         const bVal = Number((b.querySelectorAll("td")[colIdx] as HTMLElement)?.dataset.sortValue ?? Number.MAX_SAFE_INTEGER);

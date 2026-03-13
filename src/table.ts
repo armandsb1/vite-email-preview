@@ -21,6 +21,7 @@ export function addRow(
   externalTag: string,
   processingState: string,
   targetSla: string,
+  parkedSince: string,
   onPreview: PreviewFn,
   onClaim: ClaimFn,
   participantId?: string,
@@ -117,6 +118,16 @@ export function addRow(
     remainingSlaCell.dataset.sortValue = String(Number.MAX_SAFE_INTEGER);
   }
 
+  const parkedDurationCell = document.createElement("td");
+  parkedDurationCell.dataset.columnName = "parked-duration";
+  if (parkedSince) {
+    const parkedMs = Date.now() - new Date(parkedSince).getTime();
+    parkedDurationCell.textContent = formatRemainingTime(parkedMs);
+    parkedDurationCell.dataset.sortValue = String(parkedMs);
+  } else {
+    parkedDurationCell.dataset.sortValue = "0";
+  }
+
   // Hidden participant id cell (read by transfer handlers)
   const participantCell = document.createElement("td");
   participantCell.dataset.columnName = "participant";
@@ -164,6 +175,7 @@ export function addRow(
     externalTagCell,
     processingStateCell,
     remainingSlaCell,
+    parkedDurationCell,
     participantCell,
     actionCell,
   );
@@ -194,6 +206,7 @@ export function populateTableData(
       email.externalTag!,
       email.processingState!,
       email.targetSla!,
+      email.parkedSince ?? "",
       onPreview,
       onClaim,
       email.lastACDparticipant!,
