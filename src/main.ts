@@ -672,6 +672,9 @@ async function getQueues() {
     const list = document.getElementById("listQueues")!;
     const filterList = document.getElementById("queue-filter-value")!;
 
+    list.innerHTML = "";
+    filterList.innerHTML = "";
+
     for (const queue of queues.entities) {
       queueNameById[queue.id!] = queue.name!;
 

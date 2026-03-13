@@ -106,7 +106,9 @@ export function addRow(
   remainingSlaCell.dataset.columnName = "remaining-sla";
   if (targetSla) {
     const remainingMs = new Date(targetSla).getTime() - Date.now();
-    remainingSlaCell.textContent = formatRemainingTime(remainingMs);
+    remainingSlaCell.textContent = remainingMs < 0
+      ? `${formatRemainingTime(remainingMs)} over SLA`
+      : formatRemainingTime(remainingMs);
     remainingSlaCell.dataset.sortValue = String(remainingMs);
     if (remainingMs < 0) {
       remainingSlaCell.style.backgroundColor = "lightcoral";
