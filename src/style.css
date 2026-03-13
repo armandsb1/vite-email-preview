@@ -167,3 +167,10 @@ button:focus-visible {
 .gux-sticky-cell-header-style {
   background-color: var(--gse-ui-dataTableItems-header-fixedBackgroundColor);
 }
+
+th[data-column-name="from"],
+td[data-column-name="from"],
+th[data-column-name="to"],
+td[data-column-name="to"] {
+  max-width: 250px;
+}

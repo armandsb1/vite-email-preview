@@ -13,6 +13,7 @@ import {
   QUEUES_PAGE_SIZE,
   EMAIL_QUEUE_FILTER_KEYWORDS,
   ACTIVE_EMAIL_LOOKBACK_WINDOWS,
+  MAX_LOOKBACK_WINDOWS,
   SLA_THRESHOLD_KEY,
 } from "./config";
 import {
@@ -63,6 +64,7 @@ let selectedConversationId = "";
 let selectedParticipantId = "";
 let queueCounts: Record<string, number> = {};
 let queueNameById: Record<string, string> = {};
+let loadedWindows = 1;
 
 // ─── Spark web components ─────────────────────────────────────────────────────
 
@@ -161,8 +163,19 @@ async function getActiveEmails() {
 
     const { search, status, queue, state } = getActiveFilterValues();
     filterTable(search, status, queue, state);
+    updateLoadOlderButton();
   } catch (error) {
     console.error("getActiveEmails error:", error);
+  }
+}
+
+function updateLoadOlderButton() {
+  const btn = document.getElementById("load-older-emails") as HTMLButtonElement | null;
+  if (!btn) return;
+  if (loadedWindows >= ACTIVE_EMAIL_LOOKBACK_WINDOWS.length) {
+    btn.setAttribute("disabled", "true");
+  } else {
+    btn.removeAttribute("disabled");
   }
 }
 
@@ -171,7 +184,7 @@ async function fetchActiveEmailConversations() {
     conversations: [],
   };
 
-  for (const window of ACTIVE_EMAIL_LOOKBACK_WINDOWS) {
+  for (const window of ACTIVE_EMAIL_LOOKBACK_WINDOWS.slice(0, loadedWindows)) {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - window.startDaysAgo);
     const endDate = new Date();
@@ -674,6 +687,10 @@ async function getQueues() {
 
     list.innerHTML = "";
     filterList.innerHTML = "";
+    const allOption = document.createElement("gux-option");
+    allOption.setAttribute("value", "");
+    allOption.textContent = "All";
+    filterList.appendChild(allOption);
 
     for (const queue of queues.entities) {
       queueNameById[queue.id!] = queue.name!;
@@ -772,7 +789,17 @@ document
   });
 
 // Toolbar buttons
-document.getElementById("refresh")!.addEventListener("click", () => start());
+document.getElementById("refresh")!.addEventListener("click", () => {
+  loadedWindows = 1;
+  start();
+});
+
+document.getElementById("load-older-emails")!.addEventListener("click", () => {
+  if (loadedWindows < ACTIVE_EMAIL_LOOKBACK_WINDOWS.length) {
+    loadedWindows++;
+    getActiveEmails();
+  }
+});
 
 document.getElementById("queue-stats-toggle")!.addEventListener("click", () => {
   const panel = document.getElementById("queue-stats-panel")!;
