@@ -11,9 +11,8 @@ import {
   PAGE_SIZE,
   USERS_PAGE_SIZE,
   QUEUES_PAGE_SIZE,
-  EMAIL_QUEUE_FILTER_KEYWORDS,
   ACTIVE_EMAIL_LOOKBACK_WINDOWS,
-  MAX_LOOKBACK_WINDOWS,
+  AUTO_EXPAND_EMAIL_THRESHOLD,
   SLA_THRESHOLD_KEY,
 } from "./config";
 import {
@@ -31,6 +30,7 @@ import {
 import {
   populateTableData,
   filterTable,
+  applyPagination,
   getSelectedTransferableRows,
   getSelectedRowIds,
   getActiveFilterValues,
@@ -42,7 +42,7 @@ import {
   wireQueueStatsSortHandler,
 } from "./stats";
 import { getData, clearData, getLakeTime } from "./history";
-import { conversationDetailQuery as ConversationDetailQuery } from "./types";
+import { conversationDetailQuery as ConversationDetailQuery, EmailListElement } from "./types";
 
 // ─── Bootstrap: URL params → sessionStorage ──────────────────────────────────
 
@@ -65,6 +65,8 @@ let selectedParticipantId = "";
 let queueCounts: Record<string, number> = {};
 let queueNameById: Record<string, string> = {};
 let loadedWindows = 1;
+let tablePage = 1;
+let emailsList: EmailListElement[] = [];
 
 // ─── Spark web components ─────────────────────────────────────────────────────
 
@@ -85,7 +87,8 @@ async function start() {
       return;
     }
     await client.loginImplicitGrant(gc_clientId, gc_redirectUrl, {});
-    user = await uapi.getUsersMe({});
+    user = await uapi.getUsersMe({"expand":["organization"]});
+    console.log("user", user)
     getUsers();
     await getQueues();
     getActiveEmails();
@@ -114,7 +117,7 @@ async function getActiveEmails() {
 
     if (!conversations) return;
 
-    const emailsList = [
+    emailsList = [
       ...extractEmailData(
         getEmailsByStatus(conversations, "acd", "interact"),
         "In Queue",
@@ -149,6 +152,7 @@ async function getActiveEmails() {
       email.targetSla = attrs?.targetSla ?? "";
     }
     populateStateFilterDropdown(emailsList);
+    populateQueueFilterDropdown(emailsList);
 
     document.getElementById("loading")!.style.display = "none";
 
@@ -163,15 +167,61 @@ async function getActiveEmails() {
 
     const { search, status, queue, state } = getActiveFilterValues();
     filterTable(search, status, queue, state);
+    tablePage = 1;
+    applyPagination(tablePage);
     updateLoadOlderButton();
   } catch (error) {
     console.error("getActiveEmails error:", error);
   }
 }
 
+async function appendOlderEmails() {
+  const prevLoadedWindows = loadedWindows;
+  loadedWindows++;
+
+  document.getElementById("loading")!.style.display = "block";
+  try {
+    const conversations = await fetchActiveEmailConversations(prevLoadedWindows);
+
+    const newEmails: EmailListElement[] = [
+      ...extractEmailData(getEmailsByStatus(conversations, "acd", "interact"), "In Queue"),
+      ...extractEmailData(getEmailsByStatus(conversations, "agent", "interact", "user"), "Interacting"),
+      ...extractEmailData(getEmailsByStatus(conversations, "agent", "parked", "user"), "Parked"),
+      ...extractEmailData(getEmailsByStatus(conversations, "agent", "alert"), "Alerting"),
+      ...extractEmailData(getEmailsByStatus(conversations, "agent", "hold", "user"), "On Hold"),
+    ].sort((a, b) => new Date(b.lastMessage!).getTime() - new Date(a.lastMessage!).getTime());
+
+    const processingStateMap = await fetchProcessingStates(
+      newEmails.map((e) => e.conversationId!).filter(Boolean),
+    );
+    for (const email of newEmails) {
+      const attrs = processingStateMap[email.conversationId!];
+      email.processingState = attrs?.processingStatus ?? "";
+      email.targetSla = attrs?.targetSla ?? "";
+    }
+
+    emailsList = [...emailsList, ...newEmails];
+    populateStateFilterDropdown(emailsList);
+    populateQueueFilterDropdown(emailsList);
+    populateTableData(newEmails, previewEmail, claimEmail);
+
+    const { search, status, queue, state } = getActiveFilterValues();
+    filterTable(search, status, queue, state);
+    tablePage = 1;
+    applyPagination(tablePage);
+    updateLoadOlderButton();
+  } catch (error) {
+    console.error("appendOlderEmails error:", error);
+  } finally {
+    document.getElementById("loading")!.style.display = "none";
+  }
+}
+
 function updateLoadOlderButton() {
-  const btn = document.getElementById("load-older-emails") as HTMLButtonElement | null;
-  if (!btn) return;
+  const wrapper = document.getElementById("load-older-emails-wrapper");
+  const btn = document.getElementById("load-older-emails");
+  if (!wrapper || !btn) return;
+  wrapper.style.display = "flex";
   if (loadedWindows >= ACTIVE_EMAIL_LOOKBACK_WINDOWS.length) {
     btn.setAttribute("disabled", "true");
   } else {
@@ -179,12 +229,14 @@ function updateLoadOlderButton() {
   }
 }
 
-async function fetchActiveEmailConversations() {
+async function fetchActiveEmailConversations(startWindowIndex = 0) {
   let data: platformClient.Models.AnalyticsConversationQueryResponse = {
     conversations: [],
   };
 
-  for (const window of ACTIVE_EMAIL_LOOKBACK_WINDOWS.slice(0, loadedWindows)) {
+  let windowIndex = startWindowIndex;
+  while (windowIndex < loadedWindows && windowIndex < ACTIVE_EMAIL_LOOKBACK_WINDOWS.length) {
+    const window = ACTIVE_EMAIL_LOOKBACK_WINDOWS[windowIndex];
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - window.startDaysAgo);
     const endDate = new Date();
@@ -240,8 +292,20 @@ async function fetchActiveEmailConversations() {
           }
         }
       }
+
+      windowIndex++;
+
+      // Auto-expand: if this window is within threshold and we're at the current limit, extend
+      if (
+        (firstPage.totalHits ?? 0) <= AUTO_EXPAND_EMAIL_THRESHOLD &&
+        windowIndex === loadedWindows &&
+        windowIndex < ACTIVE_EMAIL_LOOKBACK_WINDOWS.length
+      ) {
+        loadedWindows++;
+      }
     } catch (error) {
       console.error(`fetchActiveEmailConversations loop error:`, error);
+      break;
     }
   }
 
@@ -336,7 +400,9 @@ async function previewEmail(id: string, participantId: string, status: string) {
   const emailContent = await getConversationThread(id);
   if (!emailContent) return;
 
-  document.getElementById("preview-modal-content")!.innerHTML = emailContent;
+  const modalContent = document.getElementById("preview-modal-content")!;
+  modalContent.innerHTML = emailContent;
+  modalContent.scrollTop = 0;
 
   const claimBtn = document.getElementById("claim-email")!;
   claimBtn.setAttribute("disabled", "false");
@@ -597,6 +663,24 @@ function populateStateFilterDropdown(emailsList: { processingState?: string }[])
   }
 }
 
+function populateQueueFilterDropdown(emails: { queue?: string }[]) {
+  const filterList = document.getElementById("queue-filter-value")!;
+  const current = (document.getElementById("queue-filter-field") as any)?.value ?? "";
+  const unique = [...new Set(emails.map((e) => e.queue ?? "").filter(Boolean))].sort();
+
+  filterList.innerHTML = '<gux-option value="">All</gux-option>';
+  for (const name of unique) {
+    const opt = document.createElement("gux-option");
+    opt.setAttribute("value", name);
+    opt.textContent = name;
+    filterList.appendChild(opt);
+  }
+
+  if (unique.includes(current)) {
+    (document.getElementById("queue-filter-field") as any).value = current;
+  }
+}
+
 async function fetchProcessingStates(
   conversationIds: string[],
 ): Promise<Record<string, { processingStatus: string; targetSla: string }>> {
@@ -683,14 +767,8 @@ async function getQueues() {
     if (!queues?.entities) return;
 
     const list = document.getElementById("listQueues")!;
-    const filterList = document.getElementById("queue-filter-value")!;
 
     list.innerHTML = "";
-    filterList.innerHTML = "";
-    const allOption = document.createElement("gux-option");
-    allOption.setAttribute("value", "");
-    allOption.textContent = "All";
-    filterList.appendChild(allOption);
 
     for (const queue of queues.entities) {
       queueNameById[queue.id!] = queue.name!;
@@ -700,16 +778,6 @@ async function getQueues() {
       item.setAttribute("value", queue.id!);
       list.appendChild(item);
 
-      const isEmailQueue = EMAIL_QUEUE_FILTER_KEYWORDS.length === 0 ||
-        EMAIL_QUEUE_FILTER_KEYWORDS.some((kw) =>
-          queue.name!.toLowerCase().includes(kw),
-        );
-      if (isEmailQueue) {
-        const filterItem = document.createElement("gux-option");
-        filterItem.innerText = queue.name!;
-        filterItem.setAttribute("value", queue.name!);
-        filterList.appendChild(filterItem);
-      }
     }
   } catch (error) {
     console.error("getQueues error:", error);
@@ -747,6 +815,8 @@ function handleQueueStatClick(queueName: string) {
 
   const { search, status, state } = getActiveFilterValues();
   filterTable(search, status, queueName, state);
+  tablePage = 1;
+  applyPagination(tablePage);
   refreshQueueFilterLabels(queueCounts);
 }
 
@@ -758,6 +828,8 @@ document.getElementById("search-value")!.addEventListener("keydown", (e) => {
   e.preventDefault();
   const { search, status, queue, state } = getActiveFilterValues();
   filterTable(search, status, queue, state);
+  tablePage = 1;
+  applyPagination(tablePage);
   const searchInput = document.querySelector(
     "[name=search-field]",
   ) as HTMLInputElement;
@@ -769,6 +841,8 @@ document.getElementById("search-value")!.addEventListener("keydown", (e) => {
 document.getElementById("status-value")!.addEventListener("change", () => {
   const { search, status, queue, state } = getActiveFilterValues();
   filterTable(search, status, queue, state);
+  tablePage = 1;
+  applyPagination(tablePage);
 });
 
 // Queue filter dropdown
@@ -777,6 +851,8 @@ document
   .addEventListener("change", function () {
     const { search, status, state } = getActiveFilterValues();
     filterTable(search, status, (this as HTMLSelectElement).value, state);
+    tablePage = 1;
+    applyPagination(tablePage);
     refreshQueueFilterLabels(queueCounts);
   });
 
@@ -786,6 +862,8 @@ document
   .addEventListener("change", function () {
     const { search, status, queue } = getActiveFilterValues();
     filterTable(search, status, queue, (this as HTMLSelectElement).value);
+    tablePage = 1;
+    applyPagination(tablePage);
   });
 
 // Toolbar buttons
@@ -796,9 +874,24 @@ document.getElementById("refresh")!.addEventListener("click", () => {
 
 document.getElementById("load-older-emails")!.addEventListener("click", () => {
   if (loadedWindows < ACTIVE_EMAIL_LOOKBACK_WINDOWS.length) {
-    loadedWindows++;
-    getActiveEmails();
+    appendOlderEmails();
   }
+});
+
+document.getElementById("pagination-first")!.addEventListener("click", () => {
+  tablePage = applyPagination(1);
+});
+
+document.getElementById("pagination-prev")!.addEventListener("click", () => {
+  tablePage = applyPagination(tablePage - 1);
+});
+
+document.getElementById("pagination-next")!.addEventListener("click", () => {
+  tablePage = applyPagination(tablePage + 1);
+});
+
+document.getElementById("pagination-last")!.addEventListener("click", () => {
+  tablePage = applyPagination(Infinity);
 });
 
 document.getElementById("queue-stats-toggle")!.addEventListener("click", () => {
@@ -879,6 +972,13 @@ document.getElementById("claim-email")!.addEventListener("click", (e) => {
   }
 });
 
+// Preview modal: show in Genesys
+document.getElementById("show-in-genesys")!.addEventListener("click", () => {
+  if (selectedConversationId) {
+    myClientApp.conversations.showInteractionDetails(selectedConversationId);
+  }
+});
+
 // Double-click a table row to open preview
 document.getElementById("tbody")!.addEventListener("dblclick", (e) => {
   const row = (e.target as HTMLElement).closest("tr");
@@ -955,6 +1055,7 @@ const TOGGLEABLE_COLUMNS = [
   { name: "processing-state", label: "Processing State", defaultVisible: false },
   { name: "remaining-sla", label: "Remaining SLA", defaultVisible: false },
   { name: "parked-duration", label: "Parked Duration", defaultVisible: false },
+  { name: "total-park-duration", label: "Total Park Duration", defaultVisible: false },
 ];
 
 function getStoredColVisibility(): Record<string, boolean> {
@@ -1089,7 +1190,7 @@ function wireSortableTableHandler() {
 
     const tableBody = table.querySelector("tbody")!;
 
-    if (columnName === "remaining-sla" || columnName === "parked-duration") {
+    if (columnName === "remaining-sla" || columnName === "parked-duration" || columnName === "total-park-duration") {
       const colIdx = getColumnIndex(columnName);
       const sorted = [...tableBody.children].sort((a, b) => {
         const aVal = Number((a.querySelectorAll("td")[colIdx] as HTMLElement)?.dataset.sortValue ?? Number.MAX_SAFE_INTEGER);

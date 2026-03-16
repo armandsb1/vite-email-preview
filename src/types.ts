@@ -38,6 +38,7 @@ export type EmailListElement = {
   processingState: string | undefined;
   targetSla: string | undefined;
   parkedSince: string | undefined;
+  finishedParkDuration: number | undefined;
   status: string | undefined;
   subject: string | undefined;
   to: string | undefined;

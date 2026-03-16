@@ -1,5 +1,5 @@
 import { EmailListElement } from "./types";
-import { getSlaThresholdMs } from "./config";
+import { getSlaThresholdMs, TABLE_PAGE_SIZE } from "./config";
 import { convertToDuration, formatShortDateTime, formatRemainingTime, getColumnIndex } from "./utils";
 
 type PreviewFn = (id: string, participantId: string, status: string) => void;
@@ -22,6 +22,7 @@ export function addRow(
   processingState: string,
   targetSla: string,
   parkedSince: string,
+  finishedParkDuration: number,
   onPreview: PreviewFn,
   onClaim: ClaimFn,
   participantId?: string,
@@ -128,6 +129,17 @@ export function addRow(
     parkedDurationCell.dataset.sortValue = "0";
   }
 
+  const totalParkDurationCell = document.createElement("td");
+  totalParkDurationCell.dataset.columnName = "total-park-duration";
+  const currentParkMs = parkedSince ? Date.now() - new Date(parkedSince).getTime() : 0;
+  const totalParkMs = currentParkMs + finishedParkDuration;
+  if (totalParkMs > 0) {
+    totalParkDurationCell.textContent = formatRemainingTime(totalParkMs);
+    totalParkDurationCell.dataset.sortValue = String(totalParkMs);
+  } else {
+    totalParkDurationCell.dataset.sortValue = "0";
+  }
+
   // Hidden participant id cell (read by transfer handlers)
   const participantCell = document.createElement("td");
   participantCell.dataset.columnName = "participant";
@@ -176,6 +188,7 @@ export function addRow(
     processingStateCell,
     remainingSlaCell,
     parkedDurationCell,
+    totalParkDurationCell,
     participantCell,
     actionCell,
   );
@@ -207,6 +220,7 @@ export function populateTableData(
       email.processingState!,
       email.targetSla!,
       email.parkedSince ?? "",
+      email.finishedParkDuration ?? 0,
       onPreview,
       onClaim,
       email.lastACDparticipant!,
@@ -264,7 +278,7 @@ export function filterTable(
       }
     }
 
-    (row as HTMLElement).style.display = match ? "table-row" : "none";
+    (row as HTMLElement).dataset.filterMatch = match ? "true" : "false";
   });
 
   updateFilterInfo(searchValue, status, queue, state);
@@ -282,7 +296,7 @@ export function updateFilterInfo(
   const allRows = document.querySelectorAll("#tbody tr");
   const total = allRows.length;
   const visible = Array.from(allRows).filter(
-    (r) => (r as HTMLElement).style.display !== "none",
+    (r) => (r as HTMLElement).dataset.filterMatch !== "false",
   ).length;
 
   bar.style.display = "block";
@@ -360,4 +374,42 @@ export function getActiveFilterValues(): {
       document.querySelector("[name=state-filter-field]") as HTMLSelectElement | null
     )?.value ?? "",
   };
+}
+
+export function applyPagination(page: number): number {
+  const allRows = Array.from(document.querySelectorAll<HTMLElement>("#tbody tr"));
+  const matchedRows = allRows.filter(r => r.dataset.filterMatch !== "false");
+  const totalPages = Math.max(1, Math.ceil(matchedRows.length / TABLE_PAGE_SIZE));
+  const clampedPage = Math.max(1, Math.min(page, totalPages));
+  const start = (clampedPage - 1) * TABLE_PAGE_SIZE;
+  const end = start + TABLE_PAGE_SIZE;
+
+  allRows.forEach(row => {
+    if (row.dataset.filterMatch === "false") {
+      row.style.display = "none";
+    } else {
+      const idx = matchedRows.indexOf(row);
+      row.style.display = idx >= start && idx < end ? "table-row" : "none";
+    }
+  });
+
+  const paginationEl = document.getElementById("pagination-controls");
+  const pageInfo = document.getElementById("pagination-info");
+  const firstBtn = document.getElementById("pagination-first");
+  const prevBtn = document.getElementById("pagination-prev");
+  const nextBtn = document.getElementById("pagination-next");
+  const lastBtn = document.getElementById("pagination-last");
+
+  if (paginationEl) paginationEl.style.display = totalPages > 1 ? "flex" : "none";
+  if (pageInfo) pageInfo.textContent = `Page ${clampedPage} of ${totalPages}`;
+
+  const atFirst = clampedPage <= 1;
+  const atLast = clampedPage >= totalPages;
+
+  if (firstBtn) atFirst ? firstBtn.setAttribute("disabled", "true") : firstBtn.removeAttribute("disabled");
+  if (prevBtn) atFirst ? prevBtn.setAttribute("disabled", "true") : prevBtn.removeAttribute("disabled");
+  if (nextBtn) atLast ? nextBtn.setAttribute("disabled", "true") : nextBtn.removeAttribute("disabled");
+  if (lastBtn) atLast ? lastBtn.setAttribute("disabled", "true") : lastBtn.removeAttribute("disabled");
+
+  return clampedPage;
 }

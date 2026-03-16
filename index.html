@@ -85,7 +85,7 @@
                     <gux-option value="">All</gux-option>
                   </gux-listbox>
                 </gux-dropdown>
-                <div id="state-filter-wrapper" style="display: none;">
+                <div id="state-filter-wrapper" style="display: none">
                   <gux-dropdown
                     id="state-filter-field"
                     style="min-width: 140px"
@@ -159,11 +159,13 @@
                   >Set column visibility</gux-list-item
                 >
                 <gux-list-item id="set-sla-threshold"
-                  ><span>Set SLA threshold</span><gux-tooltip-beta>
-      <span slot="content">Processing time red color threshold </span>
-    </gux-tooltip-beta></gux-list-item
+                  ><span>Set SLA threshold</span
+                  ><gux-tooltip-beta>
+                    <span slot="content"
+                      >Processing time red color threshold
+                    </span>
+                  </gux-tooltip-beta></gux-list-item
                 >
-                
               </gux-context-menu>
             </div>
           </div>
@@ -263,9 +265,7 @@
                   <th data-column-name="status">Status</th>
 
                   <th data-column-name="last-agent">Last agent</th>
-                  <th data-column-name="first-queue">
-                    First queue
-                  </th>
+                  <th data-column-name="first-queue">First queue</th>
                   <th data-column-name="queue">Queue</th>
                   <th data-column-name="external-tag">External Tag</th>
                   <th data-column-name="processing-state">Processing State</th>
@@ -274,6 +274,9 @@
                   </th>
                   <th data-column-name="parked-duration" aria-sort="ascending">
                     Parked Duration<gux-sort-control />
+                  </th>
+                  <th data-column-name="total-park-duration" aria-sort="ascending">
+                    Total Park Duration<gux-sort-control />
                   </th>
 
                   <th data-column-name="participant">Participant</th>
@@ -289,8 +292,34 @@
               <tbody id="tbody"></tbody>
             </table>
           </gux-table>
-          <div style="display: flex; justify-content: center; margin: 8px 0;">
-            <gux-button id="load-older-emails" accent="secondary">Load older emails</gux-button>
+          <div
+            id="pagination-controls"
+            style="
+              display: none;
+              justify-content: center;
+              align-items: center;
+              gap: 8px;
+              margin: 8px 0;
+            "
+          >
+            <gux-button id="pagination-first" accent="secondary" disabled>
+               <gux-icon size="large" icon-name="fa/chevrons-left-regular" decorative="true" screenreader-text="First page"></gux-icon>
+            </gux-button>
+            <gux-button id="pagination-prev" accent="secondary" disabled>
+              <gux-icon size="large" icon-name="fa/chevron-left-regular" decorative="true" screenreader-text="Previous page"></gux-icon>
+            </gux-button>
+            <span id="pagination-info">Page 1 of 1</span>
+            <gux-button id="pagination-next" accent="secondary" disabled>
+               <gux-icon size="large" icon-name="fa/chevron-right-regular" decorative="true" screenreader-text="Next page"></gux-icon>
+            </gux-button>
+            <gux-button id="pagination-last" accent="secondary" disabled>
+              <gux-icon size="large" icon-name="fa/chevrons-right-regular" decorative="true" screenreader-text="Last page"></gux-icon>
+            </gux-button>
+          </div>
+          <div id="load-older-emails-wrapper" style="display: none; justify-content: center; margin: 8px 0">
+            <gux-button id="load-older-emails" accent="secondary"
+              >Load older emails</gux-button
+            >
           </div>
         </gux-tab-panel>
         <gux-tab-panel tab-id="8-2">
@@ -372,7 +401,7 @@
               value="email"
             >
               <gux-listbox aria-label="type">
-                <gux-option value="ani" selected>ANI</gux-option>
+                <gux-option value="ani" selected>Phone</gux-option>
                 <gux-option value="externalTag">External Tag</gux-option>
                 <gux-option value="email">Email</gux-option>
               </gux-listbox>
@@ -419,16 +448,29 @@
 
     <gux-modal id="preview-modal" size="large">
       <div slot="content" id="preview-modal-content"></div>
-      <gux-cta-group slot="footer" align="end">
-        <gux-button slot="primary" id="claim-email" autofocus
-          >Claim email</gux-button
+      <div
+        slot="footer"
+        style="
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          width: 100%;
+        "
+      >
+        <gux-button id="show-in-genesys" accent="secondary"
+          >Show in Genesys</gux-button
         >
-        <gux-button
-          slot="dismiss"
-          onclick="document.getElementById('preview-modal').close()"
-          >Cancel</gux-button
-        >
-      </gux-cta-group>
+        <gux-cta-group align="end">
+          <gux-button slot="primary" id="claim-email" autofocus
+            >Claim email</gux-button
+          >
+          <gux-button
+            slot="dismiss"
+            onclick="document.getElementById('preview-modal').close()"
+            >Cancel</gux-button
+          >
+        </gux-cta-group>
+      </div>
     </gux-modal>
 
     <gux-modal id="delete-modal" size="medium">
@@ -450,24 +492,42 @@
     </gux-modal>
     <gux-modal id="col-visibility-modal" size="small">
       <div slot="title">Column visibility</div>
-      <div slot="content" id="col-visibility-checkboxes" style="display: flex; flex-direction: column; gap: 8px;"></div>
+      <div
+        slot="content"
+        id="col-visibility-checkboxes"
+        style="display: flex; flex-direction: column; gap: 8px"
+      ></div>
       <gux-cta-group slot="footer" align="end">
         <gux-button slot="primary" id="col-visibility-save">Apply</gux-button>
-        <gux-button slot="dismiss" onclick="document.getElementById('col-visibility-modal').close()">Cancel</gux-button>
+        <gux-button
+          slot="dismiss"
+          onclick="document.getElementById('col-visibility-modal').close()"
+          >Cancel</gux-button
+        >
       </gux-cta-group>
     </gux-modal>
 
     <gux-modal id="sla-modal" size="small">
       <div slot="title">Set SLA threshold</div>
-      <div slot="content" style="display: flex; align-items: center; gap: 8px;">
+      <div slot="content" style="display: flex; align-items: center; gap: 8px">
         <gux-form-field-number>
-          <input slot="input" id="sla-days-input" type="number" min="1" max="365" />
+          <input
+            slot="input"
+            id="sla-days-input"
+            type="number"
+            min="1"
+            max="365"
+          />
           <label slot="label">Days</label>
         </gux-form-field-number>
       </div>
       <gux-cta-group slot="footer" align="end">
         <gux-button slot="primary" id="sla-save-button">Save</gux-button>
-        <gux-button slot="dismiss" onclick="document.getElementById('sla-modal').close()">Cancel</gux-button>
+        <gux-button
+          slot="dismiss"
+          onclick="document.getElementById('sla-modal').close()"
+          >Cancel</gux-button
+        >
       </gux-cta-group>
     </gux-modal>
   </body>

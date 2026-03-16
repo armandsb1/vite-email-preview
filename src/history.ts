@@ -24,16 +24,30 @@ function buildIntervalString(): string {
 }
 
 async function createJobAni() {
+  const searchString = getInputValue("input");
   return capi.postAnalyticsConversationsDetailsJobs({
     interval: buildIntervalString(),
     segmentFilters: [
       {
         type: "and",
-        predicates: [{ dimension: "ani", value: getInputValue("input") }],
+        predicates: [{ dimension: "mediaType", value: "voice" }],
+      },
+      {
+        type: "and",
+        predicates: [],
+        clauses: [
+          {
+            type: "or",
+            predicates: [
+              { type: "dimension", dimension: "ani", value: searchString },
+              { type: "dimension", dimension: "dnis", value: searchString },
+            ],
+          },
+        ],
       },
     ],
     orderBy: "conversationStart",
-     "order": "desc"
+    order: "desc",
   });
 }
 
@@ -316,9 +330,11 @@ export async function getData(
           )
         : false;
 
+      const directionArrow = conv.originatingDirection === "outbound" ? "← " :"→ " ;
+
       csvRows.push([
         conv.conversationId,
-        conv.participants[0].sessions[0].mediaType,
+        directionArrow + conv.participants[0].sessions[0].mediaType,
         conv.participants.find((p: any) => p.purpose === "acd")
           ?.participantName ?? "N/A",
         firstCustomer?.sessions?.[0]?.segments?.[0]?.subject ?? "N/A",

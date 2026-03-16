@@ -124,6 +124,12 @@ export function extractEmailData(
       externalTag: (email as any).externalTag ?? "",
       processingState: "",
       targetSla: "",
+      finishedParkDuration: (agentParticipants ?? []).reduce((sum, p) =>
+        sum + (p.sessions ?? []).reduce((s2, session) =>
+          s2 + ((session as any).metrics ?? [])
+            .filter((m: any) => m.name === "tPark")
+            .reduce((s3: number, m: any) => s3 + (m.value ?? 0), 0),
+        0), 0) || undefined,
       parkedSince: status === "Parked"
         ? (agentParticipants ?? []).flatMap((p) =>
             (p.sessions ?? []).flatMap((s) =>
