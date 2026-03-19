@@ -10,9 +10,10 @@ export function getSlaThresholdMs(): number {
 }
 
 export const ACTIVE_EMAIL_LOOKBACK_WINDOWS = [
-  { startDaysAgo: 20, endDaysAgo: 0 },
-  { startDaysAgo: 40, endDaysAgo: 20 },
-  { startDaysAgo: 70, endDaysAgo: 40 },
+  { startDaysAgo: 15, endDaysAgo: 0 },
+  { startDaysAgo: 30, endDaysAgo: 15 },
+  { startDaysAgo: 60, endDaysAgo: 30 },
+  { startDaysAgo: 90, endDaysAgo: 60 },
 ] as const;
 
 export const MAX_LOOKBACK_WINDOWS = ACTIVE_EMAIL_LOOKBACK_WINDOWS.length;
@@ -24,6 +25,9 @@ export const PAGE_SIZE = 50;
 export const TABLE_PAGE_SIZE = 250;
 export const USERS_PAGE_SIZE = 500;
 export const QUEUES_PAGE_SIZE = 500;
+
+// Custom attribute property name whose _enumProperties populate the state filter dropdown
+export const EMAIL_STATUS_ATTRIBUTE_NAME = "processingStatusList";
 
 // Queue names containing these substrings appear in the queue filter dropdown
 export const EMAIL_QUEUE_FILTER_KEYWORDS = ["email", "ootel", "test"];

@@ -168,6 +168,11 @@ button:focus-visible {
   background-color: var(--gse-ui-dataTableItems-header-fixedBackgroundColor);
 }
 
+.status-on-hold {
+  color: #1f2d3d;
+  background-color: #d5def7;
+}
+
 th[data-column-name="from"],
 td[data-column-name="from"],
 th[data-column-name="to"],

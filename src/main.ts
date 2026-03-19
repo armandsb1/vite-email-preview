@@ -14,6 +14,7 @@ import {
   ACTIVE_EMAIL_LOOKBACK_WINDOWS,
   AUTO_EXPAND_EMAIL_THRESHOLD,
   SLA_THRESHOLD_KEY,
+  EMAIL_STATUS_ATTRIBUTE_NAME,
 } from "./config";
 import {
   delay,
@@ -67,6 +68,8 @@ let queueNameById: Record<string, string> = {};
 let loadedWindows = 1;
 let tablePage = 1;
 let emailsList: EmailListElement[] = [];
+let processingStatusOptions: { key: string; title: string }[] = [];
+let processingStatusSchemaId: string = "";
 
 // ─── Spark web components ─────────────────────────────────────────────────────
 
@@ -109,13 +112,15 @@ async function getActiveEmails() {
   document.getElementById("loading")!.style.display = "block";
 
   try {
-    const [conversations, todayOffered, hourlyData] = await Promise.all([
+    const [conversations, todayOffered, hourlyData, customAttributesList] = await Promise.all([
       fetchActiveEmailConversations(),
       getQueueTodayOffered(),
       getEmailsOfferedByHour(),
+      getCustomAttributesList(),
     ]);
 
     if (!conversations) return;
+    if (customAttributesList) processingStatusOptions = customAttributesList;
 
     emailsList = [
       ...extractEmailData(
@@ -151,7 +156,7 @@ async function getActiveEmails() {
       email.processingState = attrs?.processingStatus ?? "";
       email.targetSla = attrs?.targetSla ?? "";
     }
-    populateStateFilterDropdown(emailsList);
+    populateStateFilterDropdown();
     populateQueueFilterDropdown(emailsList);
 
     document.getElementById("loading")!.style.display = "none";
@@ -201,7 +206,7 @@ async function appendOlderEmails() {
     }
 
     emailsList = [...emailsList, ...newEmails];
-    populateStateFilterDropdown(emailsList);
+    populateStateFilterDropdown();
     populateQueueFilterDropdown(emailsList);
     populateTableData(newEmails, previewEmail, claimEmail);
 
@@ -219,14 +224,9 @@ async function appendOlderEmails() {
 
 function updateLoadOlderButton() {
   const wrapper = document.getElementById("load-older-emails-wrapper");
-  const btn = document.getElementById("load-older-emails");
-  if (!wrapper || !btn) return;
-  wrapper.style.display = "flex";
-  if (loadedWindows >= ACTIVE_EMAIL_LOOKBACK_WINDOWS.length) {
-    btn.setAttribute("disabled", "true");
-  } else {
-    btn.removeAttribute("disabled");
-  }
+  if (!wrapper) return;
+  const allLoaded = loadedWindows >= ACTIVE_EMAIL_LOOKBACK_WINDOWS.length;
+  wrapper.style.display = allLoaded ? "none" : "flex";
 }
 
 async function fetchActiveEmailConversations(startWindowIndex = 0) {
@@ -274,9 +274,9 @@ async function fetchActiveEmailConversations(startWindowIndex = 0) {
 
     try {
       const firstPage = await capi.postAnalyticsConversationsDetailsQuery(body);
-      if (!firstPage.conversations) break;
+      if (!firstPage) break;
 
-      data.conversations = [...data.conversations!, ...firstPage.conversations];
+      data.conversations = [...data.conversations!, ...(firstPage.conversations ?? [])];
 
       if (firstPage.totalHits && firstPage.totalHits > PAGE_SIZE) {
         const totalPages = Math.ceil(firstPage.totalHits / PAGE_SIZE);
@@ -414,6 +414,26 @@ async function previewEmail(id: string, participantId: string, status: string) {
     claimBtn.innerHTML = "Reconnect";
   }
 
+  // Processing status dropdown
+  const statusWrapper = document.getElementById("processing-status-field-wrapper")!;
+  const statusListbox = document.getElementById("processing-status-listbox")!;
+  const statusDropdown = document.getElementById("processing-status-dropdown") as any;
+
+  if (processingStatusOptions.length > 0) {
+    statusListbox.innerHTML = "";
+    for (const { key, title } of processingStatusOptions) {
+      const opt = document.createElement("gux-option");
+      opt.setAttribute("value", key);
+      opt.textContent = title;
+      statusListbox.appendChild(opt);
+    }
+    const currentState = emailsList.find((e) => e.conversationId === id)?.processingState ?? "";
+    statusDropdown.value = currentState;
+    (statusWrapper as HTMLElement).style.display = "";
+  } else {
+    (statusWrapper as HTMLElement).style.display = "none";
+  }
+
   // @ts-expect-error – Spark modal type not in lib
   document.getElementById("preview-modal")!.showModal();
 }
@@ -519,25 +539,26 @@ async function reconnectEmail(conversationId: string) {
 
       const draft = await capi.getConversationsEmailMessagesDraft(created.id);
       draft.htmlBody = `${draft.htmlBody ?? ""}<br><br><br>${threadHtml}`;
+      draft.state = "Edited"
       await capi.putConversationsEmailMessagesDraft(created.id, draft);
 
-      const newConversation = await capi.getConversationsEmail(created.id);
-      if (!newConversation.participants) return;
-      const agentParticipantId = newConversation.participants[0]?.id;
-      if (!agentParticipantId) return;
+      // const newConversation = await capi.getConversationsEmail(created.id);
+      // if (!newConversation.participants) return;
+      // const agentParticipantId = newConversation.participants[0]?.id;
+      // if (!agentParticipantId) return;
 
-      await capi.patchConversationsEmailParticipant(
-        created.id,
-        agentParticipantId,
-        {
-          state: "PARKED",
-        },
-      );
-      await capi.patchConversationsEmailParticipantParkingstate(
-        created.id,
-        agentParticipantId,
-        { state: "CONNECTED" },
-      );
+      // await capi.patchConversationsEmailParticipant(
+      //   created.id,
+      //   agentParticipantId,
+      //   {
+      //     state: "PARKED",
+      //   },
+      // );
+      // await capi.patchConversationsEmailParticipantParkingstate(
+      //   created.id,
+      //   agentParticipantId,
+      //   { state: "CONNECTED" },
+      // );
     }
   } finally {
     // @ts-ignore
@@ -643,22 +664,19 @@ export async function transferToUser(
 //   }
 // }
 
-function populateStateFilterDropdown(emailsList: { processingState?: string }[]) {
+function populateStateFilterDropdown() {
   const listbox = document.getElementById("state-filter-value")!;
-  const current = (listbox as any).value ?? "";
-  const unique = [...new Set(
-    emailsList.map((e) => e.processingState ?? "").filter(Boolean),
-  )].sort();
+  const current = (document.getElementById("state-filter-field") as any)?.value ?? "";
 
   listbox.innerHTML = '<gux-option value="">All</gux-option>';
-  for (const s of unique) {
+  for (const { key, title } of processingStatusOptions) {
     const opt = document.createElement("gux-option");
-    opt.setAttribute("value", s);
-    opt.textContent = s;
+    opt.setAttribute("value", key);
+    opt.textContent = title;
     listbox.appendChild(opt);
   }
 
-  if (unique.includes(current)) {
+  if (processingStatusOptions.some((o) => o.key === current)) {
     (document.getElementById("state-filter-field") as any).value = current;
   }
 }
@@ -693,7 +711,7 @@ async function fetchProcessingStates(
       const id: string = entity.conversationId;
       if (id) {
         map[id] = {
-          processingStatus: entity.customAttributes?.processingStatus ?? "",
+          processingStatus: entity.customAttributes?.[EMAIL_STATUS_ATTRIBUTE_NAME] ?? "",
           targetSla: entity.customAttributes?.targetSla ?? "",
         };
       }
@@ -727,6 +745,61 @@ async function getCustomAttributes (
     return results
   } catch (error) {
     console.log("Error getting conversation attributes", error)
+  }
+}
+
+async function getCustomAttributesList(): Promise<{ key: string; title: string }[] | null> {
+  try {
+    const result = await capi.getConversationsCustomattributesSchemas();
+    console.log(result)
+    if (!result.entities?.length) return null;
+
+    let enumProps: Record<string, any> = {};
+    for (const entity of result.entities as any[]) {
+      const prop = entity.jsonSchema?.properties?.[EMAIL_STATUS_ATTRIBUTE_NAME];
+      if (prop?._enumProperties) {
+        enumProps = prop._enumProperties;
+        processingStatusSchemaId = entity.id ?? "";
+        break;
+      }
+    }
+    if (!Object.keys(enumProps).length) return null;
+    const list = Object.entries(enumProps).map(([key, val]: [string, any]) => ({
+      key,
+      title: val.title ?? key,
+    }));
+    console.log("Statuses list", list)
+    return list
+  } catch (error) {
+    console.log("error getting custom attributes list", error);
+    return null;
+  }
+}
+
+async function updateProcessingStatus(conversationId: string, status: string) {
+  try {
+    const current = await capi.getConversationCustomattributes(conversationId) as any;
+    const existing: Record<string, any> = current?.customAttributes ?? {};
+    const updated: Record<string, any> = { ...existing };
+    if (status) updated[EMAIL_STATUS_ATTRIBUTE_NAME] = status;
+    else delete updated[EMAIL_STATUS_ATTRIBUTE_NAME];
+    console.log({
+        id: conversationId,
+        schemaId: processingStatusSchemaId,
+        divisions: current?.divisions ?? [],
+        customAttributes: updated,
+      },)
+
+    await (capi as any).putConversationCustomattributes(conversationId, {
+      body: {
+        id: conversationId,
+        schemaId: processingStatusSchemaId,
+        divisions: current?.divisions ?? [],
+        customAttributes: updated,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating processing status", error);
   }
 }
 
@@ -969,6 +1042,16 @@ document.getElementById("claim-email")!.addEventListener("click", (e) => {
     claimEmail(selectedConversationId, selectedParticipantId);
   } else if (label === "Reconnect") {
     reconnectEmail(selectedConversationId);
+  }
+});
+
+// Preview modal: processing status dropdown
+document.getElementById("processing-status-dropdown")!.addEventListener("change", (e) => {
+  const value = (e.target as any).value;
+  if (selectedConversationId && value !== undefined) {
+    updateProcessingStatus(selectedConversationId, value);
+    const email = emailsList.find((em) => em.conversationId === selectedConversationId);
+    if (email) email.processingState = value;
   }
 });
 

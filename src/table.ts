@@ -80,9 +80,18 @@ export function addRow(
   subjectCell.style.wordBreak = "break-word";
   subjectCell.innerHTML = `<gux-truncate>${subject}</gux-truncate>`;
 
+  const statusAccent: Record<string, string> = {
+    "Interacting": "success",
+    "In Queue": "info",
+    "Parked": "warning",
+    "Alerting": "warning",
+  };
   const statusCell = document.createElement("td");
   statusCell.dataset.columnName = "status";
-  statusCell.innerHTML = status;
+  const statusBadge = status === "On Hold"
+    ? `<gux-badge accent="inherit" class="status-on-hold">${status}</gux-badge>`
+    : `<gux-badge accent="${statusAccent[status] ?? "default"}">${status}</gux-badge>`;
+  statusCell.innerHTML = statusBadge;
 
   const lastAgentCell = document.createElement("td");
   lastAgentCell.dataset.columnName = "last-agent";

@@ -457,9 +457,16 @@
           width: 100%;
         "
       >
-        <gux-button id="show-in-genesys" accent="secondary"
-          >Show in Genesys</gux-button
-        >
+        <div style="display:flex;align-items:center;gap:8px;">
+          <gux-button id="show-in-genesys" accent="secondary"
+            >Show in Genesys</gux-button
+          >
+          <gux-form-field-dropdown id="processing-status-field-wrapper" style="display:none;min-width:160px;">
+            <gux-dropdown id="processing-status-dropdown" filterable="false">
+              <gux-listbox id="processing-status-listbox" aria-label="Processing status"></gux-listbox>
+            </gux-dropdown>
+          </gux-form-field-dropdown>
+        </div>
         <gux-cta-group align="end">
           <gux-button slot="primary" id="claim-email" autofocus
             >Claim email</gux-button
