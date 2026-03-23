@@ -85,6 +85,15 @@
                     <gux-option value="">All</gux-option>
                   </gux-listbox>
                 </gux-dropdown>
+                <div id="queue-segment-filter-wrap" style="display:flex;align-items:center;">
+                  <gux-form-field-checkbox>
+                    <input slot="input" type="checkbox" id="queue-segment-filter" />
+                    <label slot="label"></label>
+                  </gux-form-field-checkbox>
+                  <gux-tooltip-beta>
+                    <span slot="content">Retrieve data from the system only for selected queue</span>
+                  </gux-tooltip-beta>
+                </div>
                 <div id="state-filter-wrapper" style="display: none">
                   <gux-dropdown
                     id="state-filter-field"

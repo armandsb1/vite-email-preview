@@ -15,6 +15,7 @@ import {
   AUTO_EXPAND_EMAIL_THRESHOLD,
   SLA_THRESHOLD_KEY,
   EMAIL_STATUS_ATTRIBUTE_NAME,
+  EMAIL_FILTER_CHECKBOX_ORGS,
 } from "./config";
 import {
   delay,
@@ -92,6 +93,9 @@ async function start() {
     await client.loginImplicitGrant(gc_clientId, gc_redirectUrl, {});
     user = await uapi.getUsersMe({"expand":["organization"]});
     console.log("user", user)
+    const orgId = (user as any).organization?.id ?? "";
+    (document.getElementById("queue-segment-filter-wrap") as HTMLElement).style.display =
+      EMAIL_FILTER_CHECKBOX_ORGS.includes(orgId) ? "flex" : "none";
     getUsers();
     await getQueues();
     getActiveEmails();
@@ -242,20 +246,42 @@ async function fetchActiveEmailConversations(startWindowIndex = 0) {
     const endDate = new Date();
     endDate.setDate(endDate.getDate() - window.endDaysAgo);
 
+    const queueSegmentFilterEnabled = (document.getElementById("queue-segment-filter") as HTMLInputElement)?.checked;
+    const selectedQueueName = (document.getElementById("queue-filter-field") as any)?.value ?? "";
+    const selectedQueueId = queueSegmentFilterEnabled && selectedQueueName
+      ? Object.entries(queueNameById).find(([, name]) => name === selectedQueueName)?.[0]
+      : undefined;
+
+    const segmentFilters: ConversationDetailQuery["segmentFilters"] = [
+      {
+        type: "and",
+        predicates: [
+          {
+            type: "dimension",
+            dimension: "mediaType",
+            operator: "matches",
+            value: "email",
+          },
+        ],
+      },
+    ];
+
+    if (selectedQueueId) {
+      segmentFilters.push({
+        type: "and",
+        predicates: [
+          {
+            type: "dimension",
+            dimension: "queueId",
+            operator: "matches",
+            value: selectedQueueId,
+          },
+        ],
+      });
+    }
+
     const body: ConversationDetailQuery = {
-      segmentFilters: [
-        {
-          type: "or",
-          predicates: [
-            {
-              type: "dimension",
-              dimension: "mediaType",
-              operator: "matches",
-              value: "email",
-            },
-          ],
-        },
-      ],
+      segmentFilters,
       interval: `${startDate.toISOString()}/${endDate.toISOString()}`,
       conversationFilters: [
         {
@@ -941,6 +967,11 @@ document
 
 // Toolbar buttons
 document.getElementById("refresh")!.addEventListener("click", () => {
+  loadedWindows = 1;
+  start();
+});
+
+document.getElementById("queue-segment-filter")!.addEventListener("change", () => {
   loadedWindows = 1;
   start();
 });

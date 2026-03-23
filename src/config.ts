@@ -32,3 +32,4 @@ export const EMAIL_STATUS_ATTRIBUTE_NAME = "processingStatusList";
 // Queue names containing these substrings appear in the queue filter dropdown
 export const EMAIL_QUEUE_FILTER_KEYWORDS = ["email", "ootel", "test"];
 export const EMAIL_QUEUE_FILTER_ORGS = ["3b3b5182-a866-4ba5-bbe7-a28894787f92"];
+export const EMAIL_FILTER_CHECKBOX_ORGS = ["0b64ef26-3681-4cbf-9675-9154ddc0456a","5ca51e92-6576-497f-a70c-c67af4550fb2"]
