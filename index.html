@@ -42,6 +42,7 @@
                 <gux-form-field-search
                   label-position="screenreader"
                   id="search-field"
+                  style="width: 180px"
                 >
                   <input
                     slot="input"
@@ -54,7 +55,7 @@
                 </gux-form-field-search>
                 <gux-dropdown
                   id="status-field"
-                  style="width: 200px"
+                  style="width: 150px"
                   placeholder="Filter by status"
                 >
                   <gux-listbox
@@ -127,38 +128,46 @@
                 <gux-dropdown
                   id="dropdownQueue"
                   class="drop"
+                  style="max-width: 170px"
                   filter-type="starts-with"
                   placeholder="Select a Queue"
+                  disabled
                 >
                   <gux-listbox id="listQueues" aria-label="types"></gux-listbox>
                 </gux-dropdown>
-                <gux-button accent="secondary" id="transfer-queue">
+                <gux-button accent="secondary" id="transfer-queue" disabled>
                   <gux-icon
                     icon-name="fa/arrow-right-to-bracket-regular"
-                    decorative
+                    screenreader-text="Transfer to queue"
                   ></gux-icon>
-                  <span>Transfer to queue</span>
+                  <gux-tooltip-beta>
+                    <span slot="content">Transfer to queue</span>
+                  </gux-tooltip-beta>
                 </gux-button>
               </div>
               <div class="transfer-block">
                 <gux-dropdown
                   id="dropdownUser"
                   class="drop"
+                  style="max-width: 170px"
                   filter-type="starts-with"
                   placeholder="Select a User"
+                  disabled
                 >
                   <gux-listbox id="listUsers" aria-label="types"></gux-listbox>
                 </gux-dropdown>
-                <gux-button accent="secondary" id="transfer-user">
+                <gux-button accent="secondary" id="transfer-user" disabled>
                   <gux-icon
                     icon-name="fa/regular-user-circle-arrow-left"
-                    decorative
+                    screenreader-text="Transfer to user"
                   ></gux-icon>
-                  <span>Transfer to user</span>
+                  <gux-tooltip-beta>
+                    <span slot="content">Transfer to user</span>
+                  </gux-tooltip-beta>
                 </gux-button>
               </div>
 
-              <gux-button accent="danger" id="delete-emails">
+              <gux-button accent="danger" id="delete-emails" disabled>
                 <gux-icon icon-name="delete" decorative></gux-icon>
                 <span>Disconnect</span>
               </gux-button>
@@ -179,16 +188,7 @@
             </div>
           </div>
 
-          <div
-            id="queue-stats-panel"
-            style="
-              display: none;
-              padding: 8px 0;
-              gap: 24px;
-              align-items: flex-start;
-              flex-wrap: wrap;
-            "
-          >
+          <div id="queue-stats-panel">
             <gux-table object-table id="queue-stats-table">
               <table style="inline-size: 600px; table-layout: auto" slot="data">
                 <thead>
@@ -213,40 +213,26 @@
                 <tbody id="queue-stats-tbody"></tbody>
               </table>
             </gux-table>
-            <gux-chart-donut-beta
-              id="queue-stats-chart"
-              outer-radius="110"
-              gauge="true"
-              label-field="value"
-              include-legend="true"
-              legend-position="right"
-              legend-title="Queue"
-              show-tooltip="false"
-              style="
-                display: block;
-                width: 462px;
-                height: 286px;
-                margin-left: 150px;
-              "
-            ></gux-chart-donut-beta>
-            <div
-              id="queue-hourly-chart"
-              style="width: 420px; height: 230px"
-            ></div>
+            <div id="queue-stats-charts-col">
+              <div class="chart-titled">
+                <span class="chart-title">Waiting by queue</span>
+                <gux-chart-donut-beta
+                  id="queue-stats-chart"
+                  outer-radius="110"
+                  gauge="true"
+                  label-field="value"
+                  include-legend="true"
+                  legend-position="right"
+                  legend-title="Queue"
+                  show-tooltip="false"
+                ></gux-chart-donut-beta>
+              </div>
+              <div id="queue-hourly-chart"></div>
+              <div id="queue-status-chart"></div>
+            </div>
           </div>
 
-          <div
-            id="filter-info-bar"
-            style="
-              display: none;
-              padding: 6px 12px;
-              margin-bottom: 6px;
-              border-radius: 4px;
-              font-size: 13px;
-              background: var(--gse-ui-callout-info-background, #e8f4fd);
-              border: 1px solid var(--gse-ui-callout-info-border, #b3d9f7);
-            "
-          ></div>
+          <div id="filter-info-bar"></div>
 
           <gux-table object-table selectable-rows id="sortable-table">
             <table style="inline-size: 100%; table-layout: auto" slot="data">
@@ -260,7 +246,7 @@
                     First message<gux-sort-control />
                   </th>
                   <th data-column-name="endDate" aria-sort="ascending">
-                    LastMessage<gux-sort-control />
+                    Last message<gux-sort-control />
                   </th>
                   <th data-column-name="processingTime">Processing time</th>
                   <th data-column-name="from">From</th>
@@ -301,16 +287,7 @@
               <tbody id="tbody"></tbody>
             </table>
           </gux-table>
-          <div
-            id="pagination-controls"
-            style="
-              display: none;
-              justify-content: center;
-              align-items: center;
-              gap: 8px;
-              margin: 8px 0;
-            "
-          >
+          <div id="pagination-controls">
             <gux-button id="pagination-first" accent="secondary" disabled>
                <gux-icon size="large" icon-name="fa/chevrons-left-regular" decorative="true" screenreader-text="First page"></gux-icon>
             </gux-button>
@@ -325,7 +302,7 @@
               <gux-icon size="large" icon-name="fa/chevrons-right-regular" decorative="true" screenreader-text="Last page"></gux-icon>
             </gux-button>
           </div>
-          <div id="load-older-emails-wrapper" style="display: none; justify-content: center; margin: 8px 0">
+          <div id="load-older-emails-wrapper">
             <gux-button id="load-older-emails" accent="secondary"
               >Load older emails</gux-button
             >
@@ -448,29 +425,27 @@
         </gux-tab-panel>
       </gux-tabs>
 
-      <gux-radial-loading
-        id="loading"
-        class="loading"
-        screenreader-text="Loading..."
-      ></gux-radial-loading>
+      <div style="display: flex; justify-content: center;">
+        <gux-radial-loading
+          id="loading"
+          class="loading"
+          screenreader-text="Loading..."
+        ></gux-radial-loading>
+      </div>
     </div>
 
     <gux-modal id="preview-modal" size="large">
-      <div slot="content" id="preview-modal-content"></div>
-      <div
-        slot="footer"
-        style="
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          width: 100%;
-        "
-      >
-        <div style="display:flex;align-items:center;gap:8px;">
+      <div slot="content">
+        <div id="preview-modal-content"></div>
+      </div>
+      <div slot="footer" class="modal-footer">
+        <div class="modal-footer-left">
           <gux-button id="show-in-genesys" accent="secondary"
             >Show in Genesys</gux-button
           >
-          <gux-form-field-dropdown id="processing-status-field-wrapper" style="display:none;min-width:160px;">
+          <div id="wrapup-flyout-container"></div>
+          <div id="notes-flyout-container"></div>
+          <gux-form-field-dropdown id="processing-status-field-wrapper" class="processing-status-wrapper">
             <gux-dropdown id="processing-status-dropdown" filterable="false">
               <gux-listbox id="processing-status-listbox" aria-label="Processing status"></gux-listbox>
             </gux-dropdown>
@@ -483,7 +458,7 @@
           <gux-button
             slot="dismiss"
             onclick="document.getElementById('preview-modal').close()"
-            >Cancel</gux-button
+            >Close</gux-button
           >
         </gux-cta-group>
       </div>

@@ -28,6 +28,7 @@ import {
   extractEmailData,
   getEmailsByStatus,
   getConversationThread,
+  type WrapupEntry,
 } from "./email-processing";
 import {
   populateTableData,
@@ -41,6 +42,7 @@ import {
   populateQueueStats,
   refreshQueueFilterLabels,
   renderHourlyBarChart,
+  renderStatusStackedBarChart,
   wireQueueStatsSortHandler,
 } from "./stats";
 import { getData, clearData, getLakeTime } from "./history";
@@ -173,6 +175,7 @@ async function getActiveEmails() {
     );
     refreshQueueFilterLabels(queueCounts);
     renderHourlyBarChart(hourlyData);
+    renderStatusStackedBarChart(emailsList);
 
     const { search, status, queue, state } = getActiveFilterValues();
     filterTable(search, status, queue, state);
@@ -423,12 +426,52 @@ async function previewEmail(id: string, participantId: string, status: string) {
   selectedConversationId = id;
   selectedParticipantId = participantId;
 
-  const emailContent = await getConversationThread(id);
+  const { html: emailContent, wrapups } = await getConversationThread(id);
   if (!emailContent) return;
 
   const modalContent = document.getElementById("preview-modal-content")!;
   modalContent.innerHTML = emailContent;
   modalContent.scrollTop = 0;
+
+  // Wrapup / Notes flyout menus
+  const formatWrapupDate = (iso: string) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    const hh = String(d.getHours()).padStart(2, "0");
+    const min = String(d.getMinutes()).padStart(2, "0");
+    return `${dd}.${mm}.${yyyy} ${hh}:${min}`;
+  };
+
+  const buildFlyout = (label: string, id: string, items: string[]): string =>
+    `<span style="position:relative;display:inline-block">
+      <gux-button id="${id}" accent="secondary">${label}</gux-button>
+      <gux-popover-list-beta for="${id}" position="top-start" is-open="false">
+        <gux-list style="min-width:400px">
+          ${items.map((text) => `<gux-list-item title="${text}"><span style="white-space:normal;word-break:break-word;display:block;padding:4px 0">${text}</span></gux-list-item>`).join("")}
+        </gux-list>
+      </gux-popover-list-beta>
+    </span>`;
+
+  const wrapupsWithName = wrapups.filter((w: WrapupEntry) => w.wrapupName);
+  const wrapupsWithNotes = wrapups.filter((w: WrapupEntry) => w.notes);
+
+  const wrapupContainer = document.getElementById("wrapup-flyout-container")!;
+  const notesContainer = document.getElementById("notes-flyout-container")!;
+
+  wrapupContainer.innerHTML = wrapupsWithName.length > 0
+    ? buildFlyout("Wrapups", "wrapup-popover-target", wrapupsWithName.map((w: WrapupEntry) =>
+        `${w.wrapupName} by ${w.agentName}${w.endTime ? " at " + formatWrapupDate(w.endTime) : ""}`,
+      ))
+    : "";
+
+  notesContainer.innerHTML = wrapupsWithNotes.length > 0
+    ? buildFlyout("Notes", "notes-popover-target", wrapupsWithNotes.map((w: WrapupEntry) =>
+        `${w.notes} by ${w.agentName}${w.endTime ? " at " + formatWrapupDate(w.endTime) : ""}`,
+      ))
+    : "";
 
   const claimBtn = document.getElementById("claim-email")!;
   claimBtn.setAttribute("disabled", "false");
@@ -455,7 +498,7 @@ async function previewEmail(id: string, participantId: string, status: string) {
     }
     const currentState = emailsList.find((e) => e.conversationId === id)?.processingState ?? "";
     statusDropdown.value = currentState;
-    (statusWrapper as HTMLElement).style.display = "";
+    (statusWrapper as HTMLElement).style.display = "block";
   } else {
     (statusWrapper as HTMLElement).style.display = "none";
   }
@@ -551,7 +594,7 @@ async function reconnectEmail(conversationId: string) {
 
       const messages = await capi.getConversationsEmailMessages(conversationId);
       const subject = messages.entities?.[0]?.subject ?? "(no subject)";
-      const threadHtml = await getConversationThread(conversationId);
+      const { html: threadHtml } = await getConversationThread(conversationId);
 
       const created = await capi.postConversationsEmails({
         provider: "PureCloud Email",
@@ -805,11 +848,13 @@ async function getCustomAttributesList(): Promise<{ key: string; title: string }
 async function updateProcessingStatus(conversationId: string, status: string) {
   try {
     const current = await capi.getConversationCustomattributes(conversationId) as any;
-    const existing: Record<string, any> = current?.customAttributes ?? {};
+    console.log("current",current)
+    const existing: Record<string, any> = current?.results[0].customAttributes ?? {};
+    console.log("existing", existing)
     const updated: Record<string, any> = { ...existing };
     if (status) updated[EMAIL_STATUS_ATTRIBUTE_NAME] = status;
-    else delete updated[EMAIL_STATUS_ATTRIBUTE_NAME];
-    console.log({
+    // else delete updated[EMAIL_STATUS_ATTRIBUTE_NAME];
+    console.log("updated",{
         id: conversationId,
         schemaId: processingStatusSchemaId,
         divisions: current?.divisions ?? [],
@@ -1111,6 +1156,26 @@ document.getElementById("tbody")!.addEventListener("dblclick", (e) => {
   previewEmail(rowId, participantId, status!);
 });
 
+function syncActionButtons() {
+  const hasSelection = getSelectedRowIds().length > 0;
+  const queueDropdown = document.getElementById("dropdownQueue") as any;
+  const userDropdown = document.getElementById("dropdownUser") as any;
+
+  (document.getElementById("delete-emails") as any).disabled = !hasSelection;
+
+  queueDropdown.disabled = !hasSelection;
+  (document.getElementById("transfer-queue") as any).disabled =
+    !hasSelection || !queueDropdown.value;
+
+  userDropdown.disabled = !hasSelection;
+  (document.getElementById("transfer-user") as any).disabled =
+    !hasSelection || !userDropdown.value;
+}
+
+function syncDisconnectButton() {
+  syncActionButtons();
+}
+
 // Select-all intercept: only select visible rows
 document
   .querySelector('#sortable-table table[slot="data"]')!
@@ -1130,7 +1195,18 @@ document
         tr.removeAttribute("data-selected-row");
       }
     });
+    syncDisconnectButton();
   });
+
+// Individual row selection: sync Disconnect button
+document.getElementById("tbody")!.addEventListener("click", (e) => {
+  const target = e.target as HTMLElement;
+  if (target.closest("gux-row-select")) setTimeout(syncDisconnectButton, 0);
+});
+
+// Transfer dropdown value changes: re-evaluate transfer button state
+document.getElementById("dropdownQueue")!.addEventListener("change", syncActionButtons);
+document.getElementById("dropdownUser")!.addEventListener("change", syncActionButtons);
 
 // History tab buttons
 document

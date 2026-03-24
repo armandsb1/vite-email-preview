@@ -2,6 +2,13 @@ import platformClient from "purecloud-platform-client-v2";
 import { capi } from "./api";
 import { EmailListElement } from "./types";
 
+export type WrapupEntry = {
+  wrapupName: string;
+  notes: string;
+  agentName: string;
+  endTime: string;
+};
+
 /**
  * Finds the participant with either the earliest or latest "interact" segment start time.
  * Replaces the former findLatestInteractParticipant / findFirstInteractParticipant pair.
@@ -149,7 +156,7 @@ export function extractEmailData(
 /** Fetches and renders the full email thread as an HTML string. */
 export async function getConversationThread(
   conversationId: string,
-): Promise<string> {
+): Promise<{ html: string; wrapups: WrapupEntry[] }> {
   try {
     // Collect messageIds from workflow participants — these are auto-generated and should be excluded
     const conversation = await capi.getConversation(conversationId);
@@ -166,8 +173,25 @@ export async function getConversationThread(
       (entity) => !workflowMessageIds.has(entity.id!),
     );
 
+    // Collect wrapup entries from all email segments within agent participants
+    const wrapups: WrapupEntry[] = [];
+    for (const participant of conversation.participants ?? []) {
+      if (participant.purpose !== "agent") continue;
+      const agentName: string = (participant as any).name ?? "";
+      for (const email of (participant as any).emails ?? []) {
+        const wrapup = email.wrapup;
+        if (!wrapup?.name && !wrapup?.notes) continue;
+        wrapups.push({
+          wrapupName: wrapup.name ?? "",
+          notes: wrapup.notes ?? "",
+          agentName,
+          endTime: wrapup.endTime ?? "",
+        });
+      }
+    }
+
     if (messages.length === 0) {
-      return "<p>No messages found in this conversation.</p>";
+      return { html: "<p>No messages found in this conversation.</p>", wrapups };
     }
 
     const formatAddress = (a: platformClient.Models.EmailAddress) =>
@@ -220,11 +244,12 @@ export async function getConversationThread(
         </div>`);
     }
 
-    return parts.join(
-      '<hr style="border:none;border-top:1px solid #d1d5db;margin:16px 0">',
-    );
+    return {
+      html: parts.join('<hr style="border:none;border-top:1px solid #d1d5db;margin:16px 0">'),
+      wrapups,
+    };
   } catch (error) {
     console.error("Failed to load conversation thread:", error);
-    return "<p>Failed to load conversation thread.</p>";
+    return { html: "<p>Failed to load conversation thread.</p>", wrapups: [] };
   }
 }

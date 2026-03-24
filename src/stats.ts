@@ -131,6 +131,17 @@ export function renderHourlyBarChart(data: { hour: string; count: number }[]) {
   g.setAttribute("transform", `translate(${margin.left},${margin.top})`);
   svg.appendChild(g);
 
+  // Chart title
+  const titleEl = document.createElementNS(ns, "text");
+  titleEl.setAttribute("x", String(margin.left + plotW / 2));
+  titleEl.setAttribute("y", "12");
+  titleEl.setAttribute("text-anchor", "middle");
+  titleEl.setAttribute("font-size", "11");
+  titleEl.setAttribute("font-weight", "600");
+  titleEl.setAttribute("fill", "#555");
+  titleEl.textContent = "Offered today by hour";
+  svg.appendChild(titleEl);
+
   // Y gridlines + labels
   for (let i = 0; i <= yTicks; i++) {
     const val = Math.round((niceMax / yTicks) * i);
@@ -213,6 +224,155 @@ export function renderHourlyBarChart(data: { hour: string; count: number }[]) {
   yTitle.setAttribute("fill", "#888");
   yTitle.textContent = "Offered";
   g.appendChild(yTitle);
+
+  container.innerHTML = "";
+  container.appendChild(svg);
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  "In Queue":    "#1F6BDE",
+  "Interacting": "#37a56a",
+  "Parked":      "#E5A000",
+  "Alerting":    "#F26022",
+  "On Hold":     "#8fa8d8",
+};
+const STATUS_ORDER = ["In Queue", "Interacting", "Parked", "Alerting", "On Hold"];
+
+export function renderStatusStackedBarChart(emailList: EmailListElement[]) {
+  const container = document.getElementById("queue-status-chart");
+  if (!container) return;
+
+  // Build data: { queueName -> { status -> count } }
+  const data: Record<string, Record<string, number>> = {};
+  for (const email of emailList) {
+    const q = email.queue || "Unknown";
+    if (q === "Unknown") continue;
+    if (!data[q]) data[q] = {};
+    const s = email.status || "Unknown";
+    data[q][s] = (data[q][s] || 0) + 1;
+  }
+
+  const queues = Object.entries(data)
+    .map(([name, counts]) => ({ name, total: Object.values(counts).reduce((a, b) => a + b, 0), counts }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 5);
+
+  if (queues.length === 0) { container.innerHTML = ""; return; }
+
+  const W = 500;
+  const H = 290;
+  const LEGEND_H = 24;
+  const margin = { top: 16, right: 16, bottom: 80, left: 36 };
+  const plotW = W - margin.left - margin.right;
+  const plotH = H - margin.top - margin.bottom;
+  const barPadRatio = 0.25;
+  const barW = plotW / queues.length;
+  const barInner = barW * (1 - barPadRatio);
+  const barOffset = barW * barPadRatio / 2;
+
+  const maxTotal = Math.max(...queues.map(q => q.total), 1);
+  const niceMax = maxTotal <= 5 ? 5 : Math.ceil(maxTotal / 5) * 5;
+  const yTicks = 4;
+
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("width", String(W));
+  svg.setAttribute("height", String(H));
+  svg.style.display = "block";
+
+  const g = document.createElementNS(ns, "g");
+  g.setAttribute("transform", `translate(${margin.left},${margin.top})`);
+  svg.appendChild(g);
+
+  // Chart title
+  const titleEl = document.createElementNS(ns, "text");
+  titleEl.setAttribute("x", String(margin.left + plotW / 2));
+  titleEl.setAttribute("y", "12");
+  titleEl.setAttribute("text-anchor", "middle");
+  titleEl.setAttribute("font-size", "11");
+  titleEl.setAttribute("font-weight", "600");
+  titleEl.setAttribute("fill", "#555");
+  titleEl.textContent = "Top 5 queues status breakdown";
+  svg.appendChild(titleEl);
+
+  // Y gridlines + labels
+  for (let i = 0; i <= yTicks; i++) {
+    const val = Math.round((niceMax / yTicks) * i);
+    const y = plotH - (val / niceMax) * plotH;
+    const gridLine = document.createElementNS(ns, "line");
+    gridLine.setAttribute("x1", "0"); gridLine.setAttribute("y1", String(y));
+    gridLine.setAttribute("x2", String(plotW)); gridLine.setAttribute("y2", String(y));
+    gridLine.setAttribute("stroke", "#e0e0e0"); gridLine.setAttribute("stroke-width", "1");
+    g.appendChild(gridLine);
+    const yLabel = document.createElementNS(ns, "text");
+    yLabel.setAttribute("x", "-6"); yLabel.setAttribute("y", String(y));
+    yLabel.setAttribute("text-anchor", "end"); yLabel.setAttribute("dominant-baseline", "middle");
+    yLabel.setAttribute("font-size", "11"); yLabel.setAttribute("fill", "#888");
+    yLabel.textContent = String(val);
+    g.appendChild(yLabel);
+  }
+
+  // Stacked bars
+  queues.forEach(({ name, counts }, i) => {
+    const x = i * barW + barOffset;
+    let yOffset = plotH;
+    for (const status of STATUS_ORDER) {
+      const count = counts[status] || 0;
+      if (count === 0) continue;
+      const segH = (count / niceMax) * plotH;
+      yOffset -= segH;
+      const rect = document.createElementNS(ns, "rect");
+      rect.setAttribute("x", String(x));
+      rect.setAttribute("y", String(yOffset));
+      rect.setAttribute("width", String(barInner));
+      rect.setAttribute("height", String(segH));
+      rect.setAttribute("fill", STATUS_COLORS[status] || "#aaa");
+      rect.setAttribute("rx", "2");
+      const title = document.createElementNS(ns, "title");
+      title.textContent = `${name} — ${status}: ${count}`;
+      rect.appendChild(title);
+      g.appendChild(rect);
+    }
+    // X label
+    const cx = x + barInner / 2;
+    const labelY = plotH + 8;
+    const xLabel = document.createElementNS(ns, "text");
+    xLabel.setAttribute("x", String(cx)); xLabel.setAttribute("y", String(labelY));
+    xLabel.setAttribute("text-anchor", "end");
+    xLabel.setAttribute("transform", `rotate(-35, ${cx}, ${labelY})`);
+    xLabel.setAttribute("font-size", "10"); xLabel.setAttribute("fill", "#888");
+    xLabel.textContent = name.length > 18 ? name.slice(0, 17) + "…" : name;
+    g.appendChild(xLabel);
+  });
+
+  // Axes
+  const yAxis = document.createElementNS(ns, "line");
+  yAxis.setAttribute("x1", "0"); yAxis.setAttribute("y1", "0");
+  yAxis.setAttribute("x2", "0"); yAxis.setAttribute("y2", String(plotH));
+  yAxis.setAttribute("stroke", "#bbb"); yAxis.setAttribute("stroke-width", "1");
+  g.appendChild(yAxis);
+  const xAxis = document.createElementNS(ns, "line");
+  xAxis.setAttribute("x1", "0"); xAxis.setAttribute("y1", String(plotH));
+  xAxis.setAttribute("x2", String(plotW)); xAxis.setAttribute("y2", String(plotH));
+  xAxis.setAttribute("stroke", "#bbb"); xAxis.setAttribute("stroke-width", "1");
+  g.appendChild(xAxis);
+
+  // Legend — placed in the reserved strip at the very bottom of the SVG
+  const legendY = H - LEGEND_H + 4;
+  const legendItemW = W / STATUS_ORDER.length;
+  STATUS_ORDER.forEach((status, i) => {
+    const lx = i * legendItemW + 4;
+    const swatch = document.createElementNS(ns, "rect");
+    swatch.setAttribute("x", String(lx)); swatch.setAttribute("y", String(legendY));
+    swatch.setAttribute("width", "10"); swatch.setAttribute("height", "10");
+    swatch.setAttribute("fill", STATUS_COLORS[status]); swatch.setAttribute("rx", "2");
+    svg.appendChild(swatch);
+    const label = document.createElementNS(ns, "text");
+    label.setAttribute("x", String(lx + 13)); label.setAttribute("y", String(legendY + 9));
+    label.setAttribute("font-size", "10"); label.setAttribute("fill", "#555");
+    label.textContent = status;
+    svg.appendChild(label);
+  });
 
   container.innerHTML = "";
   container.appendChild(svg);

@@ -118,15 +118,17 @@ button:focus-visible {
 .table-toolbar {
   display: flex;
   justify-content: space-between;
-  align-items: justify-between;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 4px;
 }
 
 .toolbar-left {
   min-width: 300px;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
+  flex-wrap: wrap;
   gap: 4px;
   margin: 8px;
 }
@@ -149,7 +151,6 @@ button:focus-visible {
 
 .loading {
   display: none;
-  margin-left: 47%;
 }
 
 .gux-sticky-cell {
@@ -171,6 +172,92 @@ button:focus-visible {
 .status-on-hold {
   color: #1f2d3d;
   background-color: #d5def7;
+}
+
+#queue-stats-panel {
+  display: none;
+  align-items: flex-start;
+  gap: 24px;
+  padding: 8px 0;
+}
+
+#queue-stats-charts-col {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.chart-titled {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chart-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gse-ui-text-secondary, #555);
+  text-align: center;
+}
+
+#queue-stats-chart {
+  display: block;
+  width: 462px;
+  height: 286px;
+}
+
+#queue-hourly-chart {
+  width: 420px;
+  height: 230px;
+}
+
+#queue-status-chart {
+  width: 500px;
+  height: 290px;
+}
+
+#filter-info-bar {
+  display: none;
+  padding: 6px 12px;
+  margin-bottom: 6px;
+  border-radius: 4px;
+  font-size: 13px;
+  background: var(--gse-ui-callout-info-background, #e8f4fd);
+  border: 1px solid var(--gse-ui-callout-info-border, #b3d9f7);
+}
+
+#pagination-controls {
+  display: none;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+#load-older-emails-wrapper {
+  display: none;
+  justify-content: center;
+  margin: 8px 0;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.modal-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.processing-status-wrapper {
+  display: none;
+  min-width: 160px;
 }
 
 th[data-column-name="from"],
