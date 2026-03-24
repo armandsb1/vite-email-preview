@@ -23,6 +23,7 @@ export function addRow(
   targetSla: string,
   parkedSince: string,
   finishedParkDuration: number,
+  hasNotes: boolean,
   onPreview: PreviewFn,
   onClaim: ClaimFn,
   participantId?: string,
@@ -95,8 +96,18 @@ export function addRow(
 
   const lastAgentCell = document.createElement("td");
   lastAgentCell.dataset.columnName = "last-agent";
-  lastAgentCell.innerHTML = lastAgent;
-
+  if (hasNotes) {
+    const indicator = document.createElement("gux-status-indicator-beta");
+    indicator.setAttribute("accent", "info");
+    indicator.textContent = lastAgent;
+    const tooltipSlot = document.createElement("span");
+    tooltipSlot.setAttribute("slot", "tooltip-text");
+    tooltipSlot.textContent = "There are notes left for this conversation";
+    indicator.appendChild(tooltipSlot);
+    lastAgentCell.appendChild(indicator);
+  } else {
+    lastAgentCell.textContent = lastAgent;
+  }
   const firstQueueCell = document.createElement("td");
   firstQueueCell.dataset.columnName = "first-queue";
   firstQueueCell.innerHTML = `<gux-truncate>${firstQueue}</gux-truncate>`;
@@ -230,6 +241,7 @@ export function populateTableData(
       email.targetSla!,
       email.parkedSince ?? "",
       email.finishedParkDuration ?? 0,
+      email.hasNotes ?? false,
       onPreview,
       onClaim,
       email.lastACDparticipant!,

@@ -131,6 +131,11 @@ export function extractEmailData(
       externalTag: (email as any).externalTag ?? "",
       processingState: "",
       targetSla: "",
+      hasNotes: (agentParticipants ?? []).some((p) =>
+        (p.sessions ?? []).some((s) =>
+          (s.segments ?? []).some((seg) => !!(seg as any).wrapUpNote),
+        ),
+      ) || undefined,
       finishedParkDuration: (agentParticipants ?? []).reduce((sum, p) =>
         sum + (p.sessions ?? []).reduce((s2, session) =>
           s2 + ((session as any).metrics ?? [])

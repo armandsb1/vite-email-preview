@@ -39,6 +39,7 @@ export type EmailListElement = {
   targetSla: string | undefined;
   parkedSince: string | undefined;
   finishedParkDuration: number | undefined;
+  hasNotes: boolean | undefined;
   status: string | undefined;
   subject: string | undefined;
   to: string | undefined;
