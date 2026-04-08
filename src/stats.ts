@@ -1,6 +1,8 @@
 import { EmailListElement } from "./types";
 import { convertToDuration } from "./utils";
 
+// Builds the queue statistics table and pie chart. Returns the counts map so the caller
+// (main.ts) can cache it for refreshQueueFilterLabels without recomputing.
 export function populateQueueStats(
   emailList: EmailListElement[],
   todayOffered: Record<string, number>,
@@ -12,8 +14,8 @@ export function populateQueueStats(
   tbody.innerHTML = "";
 
   const counts: Record<string, number> = {};
-  const oldestMessage: Record<string, number> = {};
-  const totalWait: Record<string, number> = {};
+  const oldestMessage: Record<string, number> = {};  // earliest lastMessage timestamp per queue
+  const totalWait: Record<string, number> = {};       // sum of (now - lastMessage) per queue, for average wait
 
   for (const email of emailList) {
     const queueName = email.queue || "Unknown";
@@ -64,16 +66,22 @@ export function populateQueueStats(
   return counts;
 }
 
+// Updates each queue filter option to show the active email count next to the queue name.
+// The count is only appended for un-selected options; selected ones show the bare name to
+// keep the dropdown chips compact and avoid double-rendering the number.
 export function refreshQueueFilterLabels(queueCounts: Record<string, number>) {
   const filterList = document.getElementById("queue-filter-value");
   if (!filterList) return;
 
-  const selectedValue = (filterList as HTMLSelectElement).value;
-  filterList.querySelectorAll("gux-option").forEach((option) => {
+  const selectedValues: string[] = (() => {
+    const raw = (document.getElementById("queue-filter-field") as any)?.value;
+    return Array.isArray(raw) ? raw : raw ? [raw] : [];
+  })();
+  filterList.querySelectorAll("gux-option-multi").forEach((option) => {
     const queueName = option.getAttribute("value")!;
     if (!queueName) return;
     const count = queueCounts[queueName] || 0;
-    const isSelected = queueName === selectedValue;
+    const isSelected = selectedValues.includes(queueName);
     (option as HTMLElement).innerHTML =
       !isSelected && count > 0
         ? `<span style="display:flex;justify-content:space-between;width:100%"><span>${queueName}</span><span>${count}</span></span>`
@@ -98,6 +106,7 @@ export function renderQueuePieChart(data: [string, number][]) {
     chart.chartData = chartData;
   };
 
+  // The chart component may not be upgraded yet when this runs; defer via whenDefined if needed
   if (customElements.get("gux-chart-donut-beta")) {
     apply();
   } else {
@@ -109,8 +118,8 @@ export function renderHourlyBarChart(data: { hour: string; count: number }[]) {
   const container = document.getElementById("queue-hourly-chart");
   if (!container) return;
 
-  const W = 420;
-  const H = 230;
+  const W = 483;
+  const H = 265;
   const margin = { top: 16, right: 16, bottom: 52, left: 40 };
   const plotW = W - margin.left - margin.right;
   const plotH = H - margin.top - margin.bottom;
@@ -136,7 +145,7 @@ export function renderHourlyBarChart(data: { hour: string; count: number }[]) {
   titleEl.setAttribute("x", String(margin.left + plotW / 2));
   titleEl.setAttribute("y", "12");
   titleEl.setAttribute("text-anchor", "middle");
-  titleEl.setAttribute("font-size", "11");
+  titleEl.setAttribute("font-size", "15");
   titleEl.setAttribute("font-weight", "600");
   titleEl.setAttribute("fill", "#555");
   titleEl.textContent = "Offered today by hour";
@@ -289,7 +298,7 @@ export function renderStatusStackedBarChart(emailList: EmailListElement[]) {
   titleEl.setAttribute("x", String(margin.left + plotW / 2));
   titleEl.setAttribute("y", "12");
   titleEl.setAttribute("text-anchor", "middle");
-  titleEl.setAttribute("font-size", "11");
+  titleEl.setAttribute("font-size", "15");
   titleEl.setAttribute("font-weight", "600");
   titleEl.setAttribute("fill", "#555");
   titleEl.textContent = "Top 5 queues status breakdown";

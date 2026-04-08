@@ -70,6 +70,8 @@ export function getEmailsByStatus(
           session.segments?.some(
             (segment) =>
               segment.segmentType === segmentType &&
+              // A missing "segmentEnd" property means the segment is still open/active.
+              // Using hasOwnProperty because the API omits the key entirely (rather than setting it to null).
               !Object.prototype.hasOwnProperty.call(segment, "segmentEnd"),
           ) ?? false,
       );
@@ -118,8 +120,11 @@ export function extractEmailData(
       to: customerParticipant?.sessions?.[0]?.addressTo,
       subject,
       status,
+      // "queue" = the queue the email is currently sitting in (latest ACD interact)
       queue: findInteractParticipant(queueParticipants as any, "name", "latest") ?? "",
+      // "firstQueue" = the queue the email originally entered (earliest ACD interact)
       firstQueue: findInteractParticipant(queueParticipants as any, "name", "first") ?? "",
+      // nConnected emitDate is the timestamp Genesys records for when the customer connected
       firstMessage: customerParticipant?.sessions?.[0]?.metrics?.find(
         (m) => m.name === "nConnected",
       )?.emitDate,
@@ -129,19 +134,24 @@ export function extractEmailData(
         ]?.metrics?.find((m) => m.name === "nConnected")?.emitDate,
       lastAgent: findInteractParticipant(agentParticipants as any, "name", "latest") ?? "",
       externalTag: (email as any).externalTag ?? "",
+      // processingState and targetSla start empty; enrichEmailsInBackground fills them in after the table renders
       processingState: "",
       targetSla: "",
+      // hasNotes: true if any agent session has a wrapUpNote (displayed as a status indicator badge)
       hasNotes: (agentParticipants ?? []).some((p) =>
         (p.sessions ?? []).some((s) =>
           (s.segments ?? []).some((seg) => !!(seg as any).wrapUpNote),
         ),
       ) || undefined,
+      // finishedParkDuration: sum of tPark metric values (milliseconds) from all agent sessions.
+      // tPark covers only completed park intervals; the current ongoing park is tracked separately via parkedSince.
       finishedParkDuration: (agentParticipants ?? []).reduce((sum, p) =>
         sum + (p.sessions ?? []).reduce((s2, session) =>
           s2 + ((session as any).metrics ?? [])
             .filter((m: any) => m.name === "tPark")
             .reduce((s3: number, m: any) => s3 + (m.value ?? 0), 0),
         0), 0) || undefined,
+      // parkedSince: segmentStart of the currently-open "parked" segment (only relevant when status === "Parked")
       parkedSince: status === "Parked"
         ? (agentParticipants ?? []).flatMap((p) =>
             (p.sessions ?? []).flatMap((s) =>
@@ -151,9 +161,27 @@ export function extractEmailData(
             ),
           )[0] ?? undefined
         : undefined,
+      // For queue/alerting statuses the relevant participant for transfer is the ACD participant;
+      // for all others it is the agent participant
       lastACDparticipant: isQueueStatus
         ? findInteractParticipant(queueParticipants as any, "id", "latest") ?? ""
         : findInteractParticipant(agentParticipants as any, "id", "latest") ?? "",
+      // statusSince: segmentStart of the most-recently-opened segment across ALL participants.
+      // Used to compute "time in current status" at render time (avoids storing a computed duration
+      // that would become stale as time passes).
+      statusSince: (() => {
+        const allOpenSegments = (email.participants ?? []).flatMap((p) =>
+          (p.sessions ?? []).flatMap((s) =>
+            (s.segments ?? []).filter(
+              (seg) => !Object.prototype.hasOwnProperty.call(seg, "segmentEnd"),
+            ),
+          ),
+        );
+        if (!allOpenSegments.length) return undefined;
+        return allOpenSegments.reduce((a, b) =>
+          new Date(a.segmentStart ?? 0) > new Date(b.segmentStart ?? 0) ? a : b,
+        ).segmentStart;
+      })(),
     };
   });
 }
@@ -178,7 +206,9 @@ export async function getConversationThread(
       (entity) => !workflowMessageIds.has(entity.id!),
     );
 
-    // Collect wrapup entries from all email segments within agent participants
+    // Collect wrapup entries from all email segments within agent participants.
+    // The wrapup object lives on each email interaction object (not on segments), so we
+    // iterate participant.emails rather than participant.sessions.
     const wrapups: WrapupEntry[] = [];
     for (const participant of conversation.participants ?? []) {
       if (participant.purpose !== "agent") continue;

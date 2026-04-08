@@ -28,21 +28,27 @@ export type conversationDetailQuery = {
 // Flat representation of an email conversation used to populate the active-emails table
 export type EmailListElement = {
   conversationId: string | undefined;
-  firstMessage: string | undefined;
-  lastMessage: string | undefined;
+  firstMessage: string | undefined;  // emitDate of the first nConnected metric on the customer session
+  lastMessage: string | undefined;   // emitDate of the last nConnected metric on the customer session
   from: string | undefined;
   lastAgent: string | undefined;
-  firstQueue: string | undefined;
-  queue: string | undefined;
+  firstQueue: string | undefined;    // queue name from the earliest "interact" segment across ACD participants
+  queue: string | undefined;         // queue name from the latest "interact" segment across ACD participants
   externalTag: string | undefined;
-  processingState: string | undefined;
-  targetSla: string | undefined;
-  parkedSince: string | undefined;
+  processingState: string | undefined; // value of EMAIL_STATUS_ATTRIBUTE_NAME custom attribute; populated by background enrichment
+  targetSla: string | undefined;     // ISO date string from EMAIL_TARGET_SLA_ATTRIBUTE_NAME custom attribute; populated by background enrichment
+  parkedSince: string | undefined;   // segmentStart of the open "parked" segment (only set when status === "Parked")
+  // Sum of tPark metric values (ms) from all agent sessions — covers park intervals that have already ended
   finishedParkDuration: number | undefined;
+  // True if any agent session/segment has a wrapUpNote; shown as a status indicator badge on the agent name cell
   hasNotes: boolean | undefined;
-  status: string | undefined;
+  // segmentStart of the most-recently-opened segment across all participants; used to compute "time in status"
+  statusSince: string | undefined;
+  status: string | undefined;        // one of: "In Queue" | "Interacting" | "Parked" | "Alerting" | "On Hold"
   subject: string | undefined;
   to: string | undefined;
+  // Participant ID of the latest ACD participant (for queue status) or agent participant (for other statuses);
+  // passed to transfer/claim API calls
   lastACDparticipant: string | undefined;
 };
 

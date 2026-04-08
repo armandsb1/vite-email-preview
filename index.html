@@ -12,13 +12,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,100..900;1,100..900&display=swap"
-      rel="stylesheet"
-    />
-    <link
+      rel="preload"
+      as="style"
       href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&family=Urbanist:ital,wght@0,100..900;1,100..900&display=swap"
-      rel="stylesheet"
+      onload="this.onload=null;this.rel='stylesheet'"
     />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&family=Urbanist:ital,wght@0,100..900;1,100..900&display=swap"
+      />
+    </noscript>
     <link rel="stylesheet" href="/src/style.css" />
     <script type="module" src="/src/main.ts"></script>
     <style>
@@ -72,20 +76,18 @@
                     <!-- <gux-option value="In workflow">In workflow</gux-option> -->
                   </gux-listbox>
                 </gux-dropdown>
-                <gux-dropdown
+                <gux-dropdown-multi
                   id="queue-filter-field"
                   style="width: 220px"
                   filter-type="starts-with"
                   placeholder="Filter by queue"
                 >
-                  <gux-listbox
+                  <gux-listbox-multi
                     aria-label="input"
-                    name="queue-filter-field"
                     id="queue-filter-value"
                   >
-                    <gux-option value="">All</gux-option>
-                  </gux-listbox>
-                </gux-dropdown>
+                  </gux-listbox-multi>
+                </gux-dropdown-multi>
                 <div id="queue-segment-filter-wrap" style="display:flex;align-items:center;">
                   <gux-form-field-checkbox>
                     <input slot="input" type="checkbox" id="queue-segment-filter" />
@@ -258,6 +260,7 @@
                     Subject
                   </th>
                   <th data-column-name="status">Status</th>
+                  <th data-column-name="time-in-status" aria-sort="ascending">Time in Status<gux-sort-control /></th>
 
                   <th data-column-name="last-agent">Last agent</th>
                   <th data-column-name="first-queue">First queue</th>
@@ -266,9 +269,6 @@
                   <th data-column-name="processing-state">Processing State</th>
                   <th data-column-name="remaining-sla" aria-sort="ascending">
                     Remaining SLA<gux-sort-control />
-                  </th>
-                  <th data-column-name="parked-duration" aria-sort="ascending">
-                    Parked Duration<gux-sort-control />
                   </th>
                   <th data-column-name="total-park-duration" aria-sort="ascending">
                     Total Park Duration<gux-sort-control />
@@ -294,7 +294,9 @@
             <gux-button id="pagination-prev" accent="secondary" disabled>
               <gux-icon size="large" icon-name="fa/chevron-left-regular" decorative="true" screenreader-text="Previous page"></gux-icon>
             </gux-button>
-            <span id="pagination-info">Page 1 of 1</span>
+            <span style="display:flex;align-items:center;gap:4px;white-space:nowrap">
+              Page <input id="pagination-page-input" type="number" min="1" value="1" style="width:48px;text-align:center;padding:2px 4px;border:1px solid var(--gse-ui-input-border,#ccc);border-radius:4px;font-size:13px"> of <span id="pagination-total">1</span>
+            </span>
             <gux-button id="pagination-next" accent="secondary" disabled>
                <gux-icon size="large" icon-name="fa/chevron-right-regular" decorative="true" screenreader-text="Next page"></gux-icon>
             </gux-button>

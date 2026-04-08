@@ -5,7 +5,7 @@ import {
 } from "genesys-spark";
 import ClientApp from "purecloud-client-app-sdk";
 
-import { client, capi, uapi, rapi, papi } from "./api";
+import { client, capi, uapi, rapi, papi, aapi } from "./api";
 import {
   DEFAULT_REGION,
   PAGE_SIZE,
@@ -15,6 +15,7 @@ import {
   AUTO_EXPAND_EMAIL_THRESHOLD,
   SLA_THRESHOLD_KEY,
   EMAIL_STATUS_ATTRIBUTE_NAME,
+  EMAIL_TARGET_SLA_ATTRIBUTE_NAME,
   EMAIL_FILTER_CHECKBOX_ORGS,
 } from "./config";
 import {
@@ -23,6 +24,7 @@ import {
   getUTCOffset,
   formatDateRange,
   getColumnIndex,
+  formatRemainingTime,
 } from "./utils";
 import {
   extractEmailData,
@@ -49,6 +51,9 @@ import { getData, clearData, getLakeTime } from "./history";
 import { conversationDetailQuery as ConversationDetailQuery, EmailListElement } from "./types";
 
 // ─── Bootstrap: URL params → sessionStorage ──────────────────────────────────
+// Genesys Cloud passes configuration as query string parameters when embedding the app
+// as a client-app iframe. getSessionParam reads them on first load and persists them in
+// sessionStorage so they survive OAuth redirect round-trips.
 
 const urlParams = new URL(document.location.href).searchParams;
 const gc_region = getSessionParam(urlParams, "gc_region") ?? DEFAULT_REGION;
@@ -64,15 +69,15 @@ const myClientApp = new ClientApp({ pcEnvironment: gc_region });
 // ─── Application state ────────────────────────────────────────────────────────
 
 let user: platformClient.Models.UserMe | null = null;
-let selectedConversationId = "";
-let selectedParticipantId = "";
-let queueCounts: Record<string, number> = {};
-let queueNameById: Record<string, string> = {};
-let loadedWindows = 1;
+let selectedConversationId = "";   // conversationId of the email currently open in the preview modal
+let selectedParticipantId = "";    // participantId for claim/transfer calls in the preview modal
+let queueCounts: Record<string, number> = {};        // { queueName → active email count } from the last stats refresh
+let queueNameById: Record<string, string> = {};      // { queueId → queueName } — populated by getQueues()
+let loadedWindows = 1;             // number of ACTIVE_EMAIL_LOOKBACK_WINDOWS that have been fetched so far
 let tablePage = 1;
 let emailsList: EmailListElement[] = [];
-let processingStatusOptions: { key: string; title: string }[] = [];
-let processingStatusSchemaId: string = "";
+let processingStatusOptions: { key: string; title: string }[] = []; // dropdown options from the custom attribute schema
+let processingStatusSchemaId: string = "";           // schema ID required for PUT /customattributes; empty = feature disabled
 
 // ─── Spark web components ─────────────────────────────────────────────────────
 
@@ -83,8 +88,11 @@ async function loadSparkComponents() {
 loadSparkComponents();
 
 // ─── Entry point ──────────────────────────────────────────────────────────────
+// Defer start() until gux-tabs is registered. The component sets up a MutationObserver in its
+// connectedCallback; if start() fires before the element upgrades, the observer reference is
+// undefined and the tab switching throws "Cannot read properties of undefined (reading 'tabId')".
 
-start();
+customElements.whenDefined("gux-tabs").then(() => start());
 
 async function start() {
   try {
@@ -98,6 +106,8 @@ async function start() {
     const orgId = (user as any).organization?.id ?? "";
     (document.getElementById("queue-segment-filter-wrap") as HTMLElement).style.display =
       EMAIL_FILTER_CHECKBOX_ORGS.includes(orgId) ? "flex" : "none";
+    (document.getElementById("queue-segment-filter") as HTMLInputElement).checked =
+      localStorage.getItem("queueSegmentFilter") === "true";
     getUsers();
     await getQueues();
     getActiveEmails();
@@ -124,6 +134,7 @@ async function getActiveEmails() {
       getEmailsOfferedByHour(),
       getCustomAttributesList(),
     ]);
+    // console.log("conversations", conversations)
 
     if (!conversations) return;
     if (customAttributesList) processingStatusOptions = customAttributesList;
@@ -154,34 +165,23 @@ async function getActiveEmails() {
         new Date(b.lastMessage!).getTime() - new Date(a.lastMessage!).getTime(),
     );
 
-    const processingStateMap = await fetchProcessingStates(
-      emailsList.map((e) => e.conversationId!).filter(Boolean),
-    );
-    for (const email of emailsList) {
-      const attrs = processingStateMap[email.conversationId!];
-      email.processingState = attrs?.processingStatus ?? "";
-      email.targetSla = attrs?.targetSla ?? "";
-    }
-    populateStateFilterDropdown();
     populateQueueFilterDropdown(emailsList);
 
-    document.getElementById("loading")!.style.display = "none";
-
-    populateTableData(emailsList, previewEmail, claimEmail);
-    queueCounts = populateQueueStats(
-      emailsList,
-      todayOffered,
-      handleQueueStatClick,
-    );
+    await populateTableData(emailsList, previewEmail, claimEmail);
+    queueCounts = populateQueueStats(emailsList, todayOffered, handleQueueStatClick);
     refreshQueueFilterLabels(queueCounts);
     renderHourlyBarChart(hourlyData);
     renderStatusStackedBarChart(emailsList);
 
-    const { search, status, queue, state } = getActiveFilterValues();
-    filterTable(search, status, queue, state);
+    const { search, status, queues, state } = getActiveFilterValues();
+    filterTable(search, status, queues, state);
     tablePage = 1;
     applyPagination(tablePage);
     updateLoadOlderButton();
+
+    // Enrich processingState and targetSla in the background so the table is visible immediately.
+    // enrichEmailsInBackground updates cells in-place via data-conversation-id once the API responds.
+    enrichEmailsInBackground(emailsList);
   } catch (error) {
     console.error("getActiveEmails error:", error);
   }
@@ -203,25 +203,19 @@ async function appendOlderEmails() {
       ...extractEmailData(getEmailsByStatus(conversations, "agent", "hold", "user"), "On Hold"),
     ].sort((a, b) => new Date(b.lastMessage!).getTime() - new Date(a.lastMessage!).getTime());
 
-    const processingStateMap = await fetchProcessingStates(
-      newEmails.map((e) => e.conversationId!).filter(Boolean),
-    );
-    for (const email of newEmails) {
-      const attrs = processingStateMap[email.conversationId!];
-      email.processingState = attrs?.processingStatus ?? "";
-      email.targetSla = attrs?.targetSla ?? "";
-    }
+    // console.log("newEmails", newEmails)
 
     emailsList = [...emailsList, ...newEmails];
-    populateStateFilterDropdown();
     populateQueueFilterDropdown(emailsList);
-    populateTableData(newEmails, previewEmail, claimEmail);
+    await populateTableData(newEmails, previewEmail, claimEmail);
 
-    const { search, status, queue, state } = getActiveFilterValues();
-    filterTable(search, status, queue, state);
+    const { search, status, queues, state } = getActiveFilterValues();
+    filterTable(search, status, queues, state);
     tablePage = 1;
     applyPagination(tablePage);
     updateLoadOlderButton();
+
+    enrichEmailsInBackground(newEmails);
   } catch (error) {
     console.error("appendOlderEmails error:", error);
   } finally {
@@ -236,6 +230,8 @@ function updateLoadOlderButton() {
   wrapper.style.display = allLoaded ? "none" : "flex";
 }
 
+// Fetches active (not-yet-ended) email conversations across the currently-loaded time windows.
+// startWindowIndex lets appendOlderEmails fetch only the newly-added window without re-fetching earlier data.
 async function fetchActiveEmailConversations(startWindowIndex = 0) {
   let data: platformClient.Models.AnalyticsConversationQueryResponse = {
     conversations: [],
@@ -250,11 +246,23 @@ async function fetchActiveEmailConversations(startWindowIndex = 0) {
     endDate.setDate(endDate.getDate() - window.endDaysAgo);
 
     const queueSegmentFilterEnabled = (document.getElementById("queue-segment-filter") as HTMLInputElement)?.checked;
-    const selectedQueueName = (document.getElementById("queue-filter-field") as any)?.value ?? "";
-    const selectedQueueId = queueSegmentFilterEnabled && selectedQueueName
-      ? Object.entries(queueNameById).find(([, name]) => name === selectedQueueName)?.[0]
-      : undefined;
+    const selectedQueueNames: string[] = (() => {
+      const raw = (document.getElementById("queue-filter-field") as any)?.value;
+      return Array.isArray(raw)
+        ? raw.filter(Boolean)
+        : typeof raw === "string" && raw
+          ? raw.split(",").map((s) => s.trim()).filter(Boolean)
+          : [];
+    })();
+    // Resolve queue names to IDs for the segment filter (only when the checkbox is enabled)
+    const selectedQueueIds = queueSegmentFilterEnabled
+      ? selectedQueueNames
+          .map((name) => Object.entries(queueNameById).find(([, n]) => n === name)?.[0])
+          .filter((id): id is string => Boolean(id))
+      : [];
 
+    // Always filter to email mediaType. If the segment filter checkbox is enabled and queues are
+    // selected, add an OR predicate per queue so only conversations that touched those queues are returned.
     const segmentFilters: ConversationDetailQuery["segmentFilters"] = [
       {
         type: "and",
@@ -269,17 +277,15 @@ async function fetchActiveEmailConversations(startWindowIndex = 0) {
       },
     ];
 
-    if (selectedQueueId) {
+    if (selectedQueueIds.length > 0) {
       segmentFilters.push({
-        type: "and",
-        predicates: [
-          {
-            type: "dimension",
-            dimension: "queueId",
-            operator: "matches",
-            value: selectedQueueId,
-          },
-        ],
+        type: "or",
+        predicates: selectedQueueIds.map((id) => ({
+          type: "dimension",
+          dimension: "queueId",
+          operator: "matches",
+          value: id,
+        })),
       });
     }
 
@@ -324,7 +330,9 @@ async function fetchActiveEmailConversations(startWindowIndex = 0) {
 
       windowIndex++;
 
-      // Auto-expand: if this window is within threshold and we're at the current limit, extend
+      // Auto-expand: if the current window returned few emails (below AUTO_EXPAND_EMAIL_THRESHOLD)
+      // and we've consumed all loaded windows, automatically load one more window so the user sees
+      // enough data without having to click "Load older emails".
       if (
         (firstPage.totalHits ?? 0) <= AUTO_EXPAND_EMAIL_THRESHOLD &&
         windowIndex === loadedWindows &&
@@ -341,19 +349,21 @@ async function fetchActiveEmailConversations(startWindowIndex = 0) {
   return data;
 }
 
+// Returns { queueName → nOffered count } for today using the AnalyticsApi aggregate query.
+// NOTE: this method is on AnalyticsApi (aapi), NOT on ConversationsApi (capi).
 async function getQueueTodayOffered(): Promise<Record<string, number>> {
   const now = new Date();
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
 
   try {
-    const result = await capi.postAnalyticsConversationsAggregatesQuery({
+    const result = await aapi.postAnalyticsConversationsAggregatesQuery({
       interval: `${startOfDay.toISOString()}/${endOfDay.toISOString()}`,
       groupBy: ["queueId"],
       filter: {
         type: "and",
         predicates: [
-          { type: "dimension", dimension: "mediaType", value: "email" },
+          { type: "dimension", dimension: "mediaType", operator: "matches", value: "email" },
         ],
       },
       metrics: ["nOffered"],
@@ -365,9 +375,8 @@ async function getQueueTodayOffered(): Promise<Record<string, number>> {
       if (!queueId) continue;
       const queueName = queueNameById[queueId];
       if (!queueName) continue;
-      const count =
-        r.data?.[0]?.metrics?.find((m: any) => m.metric === "nOffered")?.stats
-          ?.count ?? 0;
+      const count = (r.data ?? []).reduce((sum: number, d: any) =>
+        sum + (d.metrics?.find((m: any) => m.metric === "nOffered")?.stats?.count ?? 0), 0);
       offered[queueName] = count;
     }
     return offered;
@@ -385,7 +394,7 @@ async function getEmailsOfferedByHour(): Promise<
   const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
 
   try {
-    const result = await capi.postAnalyticsConversationsAggregatesQuery({
+    const result = await aapi.postAnalyticsConversationsAggregatesQuery({
       interval: `${startOfDay.toISOString()}/${endOfDay.toISOString()}`,
       granularity: "PT1H",
       filter: {
@@ -750,21 +759,35 @@ function populateStateFilterDropdown() {
   }
 }
 
+// Populates the queue filter multi-select dropdown options.
+// When the segment-filter checkbox is ON, shows every known queue (from queueNameById) so the user
+// can filter before fetching data. When OFF, shows only queues that actually have active emails.
+// Preserves the current selection after repopulation by re-applying the comma-separated value.
 function populateQueueFilterDropdown(emails: { queue?: string }[]) {
   const filterList = document.getElementById("queue-filter-value")!;
-  const current = (document.getElementById("queue-filter-field") as any)?.value ?? "";
-  const unique = [...new Set(emails.map((e) => e.queue ?? "").filter(Boolean))].sort();
+  const queueDropdown = document.getElementById("queue-filter-field") as any;
+  const currentRaw = queueDropdown?.value;
+  const current: string[] = Array.isArray(currentRaw)
+    ? currentRaw
+    : typeof currentRaw === "string" && currentRaw
+      ? currentRaw.split(",").map((s) => s.trim()).filter(Boolean)
+      : [];
+  const segmentFilterEnabled = (document.getElementById("queue-segment-filter") as HTMLInputElement)?.checked;
+  const unique = segmentFilterEnabled
+    ? Object.values(queueNameById).sort()
+    : [...new Set(emails.map((e) => e.queue ?? "").filter(Boolean))].sort();
 
-  filterList.innerHTML = '<gux-option value="">All</gux-option>';
+  filterList.innerHTML = "";
   for (const name of unique) {
-    const opt = document.createElement("gux-option");
+    const opt = document.createElement("gux-option-multi");
     opt.setAttribute("value", name);
     opt.textContent = name;
     filterList.appendChild(opt);
   }
 
-  if (unique.includes(current)) {
-    (document.getElementById("queue-filter-field") as any).value = current;
+  const preserved = current.filter((v) => unique.includes(v));
+  if (preserved.length > 0) {
+    queueDropdown.value = preserved.join(",");
   }
 }
 
@@ -781,12 +804,56 @@ async function fetchProcessingStates(
       if (id) {
         map[id] = {
           processingStatus: entity.customAttributes?.[EMAIL_STATUS_ATTRIBUTE_NAME] ?? "",
-          targetSla: entity.customAttributes?.targetSla ?? "",
+          targetSla: entity.customAttributes?.[EMAIL_TARGET_SLA_ATTRIBUTE_NAME] ?? "",
         };
       }
     }
   }
+  // console.log("map", map)
   return map;
+}
+
+// After the table is painted, fetch custom attributes (processingState, targetSla) in the background.
+// Updates the in-memory emailsList and the corresponding DOM cells without re-rendering the full table.
+// Skipped entirely when processingStatusSchemaId is empty (schema not found in the org).
+async function enrichEmailsInBackground(emails: EmailListElement[]) {
+  if (!processingStatusSchemaId) return;
+  try {
+    const processingStateMap = await fetchProcessingStates(
+      emails.map((e) => e.conversationId!).filter(Boolean),
+    );
+    for (const email of emails) {
+      const attrs = processingStateMap[email.conversationId!];
+      email.processingState = attrs?.processingStatus ?? "";
+      email.targetSla = attrs?.targetSla ?? "";
+
+      // Find the already-rendered row by its data-conversation-id attribute and update cells in-place
+      const row = document.querySelector(
+        `#tbody tr[data-conversation-id="${email.conversationId}"]`,
+      ) as HTMLElement | null;
+      if (!row) continue;
+
+      const stateCell = row.querySelector('[data-column-name="processing-state"]');
+      if (stateCell) stateCell.textContent = email.processingState;
+
+      const slaCell = row.querySelector('[data-column-name="remaining-sla"]') as HTMLElement | null;
+      if (slaCell) {
+        if (email.targetSla) {
+          const remainingMs = new Date(email.targetSla).getTime() - Date.now();
+          slaCell.textContent = remainingMs < 0
+            ? `${formatRemainingTime(remainingMs)} over SLA`
+            : formatRemainingTime(remainingMs);
+          slaCell.dataset.sortValue = String(remainingMs);
+          if (remainingMs < 0) slaCell.style.backgroundColor = "lightcoral";
+        } else {
+          slaCell.dataset.sortValue = String(Number.MAX_SAFE_INTEGER);
+        }
+      }
+    }
+    populateStateFilterDropdown();
+  } catch (err) {
+    console.error("enrichEmailsInBackground error:", err);
+  }
 }
 
 async function getCustomAttributes (
@@ -817,17 +884,20 @@ async function getCustomAttributes (
   }
 }
 
-async function getCustomAttributesList(): Promise<{ key: string; title: string }[] | null> {
+// Fetches all custom attribute schemas and finds the one that has an _enumProperties map
+// on the EMAIL_STATUS_ATTRIBUTE_NAME property. Stores the schema ID for later PUT calls and
+// returns a flat { key, title }[] array used to populate the processing state dropdown.
+async function  getCustomAttributesList(): Promise<{ key: string; title: string }[] | null> {
   try {
     const result = await capi.getConversationsCustomattributesSchemas();
-    console.log(result)
-    if (!result.entities?.length) return null;
+    if (!result.entities?.length || result.entities?.length==0) return null;
 
     let enumProps: Record<string, any> = {};
     for (const entity of result.entities as any[]) {
       const prop = entity.jsonSchema?.properties?.[EMAIL_STATUS_ATTRIBUTE_NAME];
       if (prop?._enumProperties) {
         enumProps = prop._enumProperties;
+        // Cache the schema ID — required in the body of every PUT /customattributes call
         processingStatusSchemaId = entity.id ?? "";
         break;
       }
@@ -845,6 +915,9 @@ async function getCustomAttributesList(): Promise<{ key: string; title: string }
   }
 }
 
+// Updates a single custom attribute (EMAIL_STATUS_ATTRIBUTE_NAME) while preserving all other
+// existing custom attributes. The PUT endpoint replaces the entire customAttributes object,
+// so we fetch the current values first and merge the new status into them.
 async function updateProcessingStatus(conversationId: string, status: string) {
   try {
     const current = await capi.getConversationCustomattributes(conversationId) as any;
@@ -876,21 +949,38 @@ async function updateProcessingStatus(conversationId: string, status: string) {
 
 // ─── Data loading helpers ─────────────────────────────────────────────────────
 
+// Loads all active users and populates the "Transfer to user" dropdown.
+// Results are cached in sessionStorage for 1 hour to avoid repeat API calls on each refresh.
 async function getUsers() {
+  const CACHE_KEY = "genesys_users_cache";
+  const HOUR_MS = 60 * 60 * 1000;
   const list = document.getElementById("listUsers")!;
-  let pageNumber = 1;
-  let hasNextPage = true;
 
   try {
+    const cached = sessionStorage.getItem(CACHE_KEY);
+    if (cached) {
+      const { timestamp, entities } = JSON.parse(cached) as { timestamp: number; entities: { id: string; name: string }[] };
+      if (Date.now() - timestamp < HOUR_MS) {
+        for (const u of entities) {
+          const item = document.createElement("gux-option");
+          item.innerText = u.name;
+          item.setAttribute("value", u.id);
+          list.appendChild(item);
+        }
+        return;
+      }
+    }
+
+    const allEntities: { id: string; name: string }[] = [];
+    let pageNumber = 1;
+    let hasNextPage = true;
+
     while (hasNextPage) {
-      const users = await uapi.getUsers({
-        pageSize: USERS_PAGE_SIZE,
-        pageNumber,
-        state: "active",
-      });
+      const users = await uapi.getUsers({ pageSize: USERS_PAGE_SIZE, pageNumber, state: "active" });
       if (!users?.entities) break;
 
       for (const u of users.entities) {
+        allEntities.push({ id: u.id!, name: u.name! });
         const item = document.createElement("gux-option");
         item.innerText = u.name!;
         item.setAttribute("value", u.id!);
@@ -900,29 +990,62 @@ async function getUsers() {
       hasNextPage = !!users.nextUri;
       pageNumber++;
     }
+
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: Date.now(), entities: allEntities }));
   } catch (error) {
     console.error("getUsers error:", error);
   }
 }
 
+// Loads all routing queues, populates the "Transfer to queue" dropdown, and builds the
+// queueNameById lookup map used for queue filter labels and segment filter resolution.
+// Results are cached in sessionStorage for 1 hour.
 async function getQueues() {
+  const CACHE_KEY = "genesys_queues_cache";
+  const HOUR_MS = 60 * 60 * 1000;
+
   try {
-    const queues = await rapi.getRoutingQueues({ pageSize: QUEUES_PAGE_SIZE });
-    if (!queues?.entities) return;
-
     const list = document.getElementById("listQueues")!;
-
+    // Clear first to prevent duplicate options if called again (e.g. on refresh)
     list.innerHTML = "";
 
-    for (const queue of queues.entities) {
-      queueNameById[queue.id!] = queue.name!;
-
-      const item = document.createElement("gux-option");
-      item.innerText = queue.name!;
-      item.setAttribute("value", queue.id!);
-      list.appendChild(item);
-
+    const cached = sessionStorage.getItem(CACHE_KEY);
+    if (cached) {
+      const { timestamp, entities } = JSON.parse(cached) as { timestamp: number; entities: { id: string; name: string }[] };
+      if (Date.now() - timestamp < HOUR_MS) {
+        for (const q of entities) {
+          queueNameById[q.id] = q.name;
+          const item = document.createElement("gux-option");
+          item.innerText = q.name;
+          item.setAttribute("value", q.id);
+          list.appendChild(item);
+        }
+        return;
+      }
     }
+
+    const entitiesToCache: { id: string; name: string }[] = [];
+    let pageNumber = 1;
+    let hasNextPage = true;
+
+    while (hasNextPage) {
+      const queues = await rapi.getRoutingQueues({ pageSize: QUEUES_PAGE_SIZE, pageNumber });
+      if (!queues?.entities) break;
+
+      for (const queue of queues.entities) {
+        queueNameById[queue.id!] = queue.name!;
+        entitiesToCache.push({ id: queue.id!, name: queue.name! });
+        const item = document.createElement("gux-option");
+        item.innerText = queue.name!;
+        item.setAttribute("value", queue.id!);
+        list.appendChild(item);
+      }
+
+      hasNextPage = !!queues.nextUri;
+      pageNumber++;
+    }
+
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ timestamp: Date.now(), entities: entitiesToCache }));
   } catch (error) {
     console.error("getQueues error:", error);
   }
@@ -950,6 +1073,9 @@ function setDatePickerRange(months: number) {
   if (picker) picker.value = formatDateRange(months);
 }
 
+// Clicking a queue stats row closes the panel and filters the email table to that queue.
+// guxForceUpdate() notifies the gux-dropdown-multi that its value changed programmatically
+// (the component does not watch the value property for external mutations by default).
 function handleQueueStatClick(queueName: string) {
   document.getElementById("queue-stats-panel")!.style.display = "none";
 
@@ -958,7 +1084,7 @@ function handleQueueStatClick(queueName: string) {
   queueDropdown.guxForceUpdate?.();
 
   const { search, status, state } = getActiveFilterValues();
-  filterTable(search, status, queueName, state);
+  filterTable(search, status, [queueName], state);
   tablePage = 1;
   applyPagination(tablePage);
   refreshQueueFilterLabels(queueCounts);
@@ -970,8 +1096,8 @@ function handleQueueStatClick(queueName: string) {
 document.getElementById("search-value")!.addEventListener("keydown", (e) => {
   if (e.key !== "Enter") return;
   e.preventDefault();
-  const { search, status, queue, state } = getActiveFilterValues();
-  filterTable(search, status, queue, state);
+  const { search, status, queues, state } = getActiveFilterValues();
+  filterTable(search, status, queues, state);
   tablePage = 1;
   applyPagination(tablePage);
   const searchInput = document.querySelector(
@@ -983,18 +1109,18 @@ document.getElementById("search-value")!.addEventListener("keydown", (e) => {
 
 // Status filter dropdown
 document.getElementById("status-value")!.addEventListener("change", () => {
-  const { search, status, queue, state } = getActiveFilterValues();
-  filterTable(search, status, queue, state);
+  const { search, status, queues, state } = getActiveFilterValues();
+  filterTable(search, status, queues, state);
   tablePage = 1;
   applyPagination(tablePage);
 });
 
 // Queue filter dropdown
 document
-  .getElementById("queue-filter-value")!
-  .addEventListener("change", function () {
-    const { search, status, state } = getActiveFilterValues();
-    filterTable(search, status, (this as HTMLSelectElement).value, state);
+  .getElementById("queue-filter-field")!
+  .addEventListener("change", () => {
+    const { search, status, queues, state } = getActiveFilterValues();
+    filterTable(search, status, queues, state);
     tablePage = 1;
     applyPagination(tablePage);
     refreshQueueFilterLabels(queueCounts);
@@ -1004,8 +1130,8 @@ document
 document
   .getElementById("state-filter-value")!
   .addEventListener("change", function () {
-    const { search, status, queue } = getActiveFilterValues();
-    filterTable(search, status, queue, (this as HTMLSelectElement).value);
+    const { search, status, queues } = getActiveFilterValues();
+    filterTable(search, status, queues, (this as HTMLSelectElement).value);
     tablePage = 1;
     applyPagination(tablePage);
   });
@@ -1016,7 +1142,9 @@ document.getElementById("refresh")!.addEventListener("click", () => {
   start();
 });
 
-document.getElementById("queue-segment-filter")!.addEventListener("change", () => {
+document.getElementById("queue-segment-filter")!.addEventListener("change", (e) => {
+  localStorage.setItem("queueSegmentFilter", String((e.target as HTMLInputElement).checked));
+  populateQueueFilterDropdown(emailsList);
   loadedWindows = 1;
   start();
 });
@@ -1041,6 +1169,11 @@ document.getElementById("pagination-next")!.addEventListener("click", () => {
 
 document.getElementById("pagination-last")!.addEventListener("click", () => {
   tablePage = applyPagination(Infinity);
+});
+
+document.getElementById("pagination-page-input")!.addEventListener("change", (e) => {
+  const val = parseInt((e.target as HTMLInputElement).value, 10);
+  if (!isNaN(val)) tablePage = applyPagination(val);
 });
 
 document.getElementById("queue-stats-toggle")!.addEventListener("click", () => {
@@ -1156,6 +1289,9 @@ document.getElementById("tbody")!.addEventListener("dblclick", (e) => {
   previewEmail(rowId, participantId, status!);
 });
 
+// Synchronises the enabled/disabled state of action buttons based on row selection and
+// whether a target queue/user has been chosen. The Transfer buttons require both: at least
+// one row selected AND a target chosen, so both conditions are checked together.
 function syncActionButtons() {
   const hasSelection = getSelectedRowIds().length > 0;
   const queueDropdown = document.getElementById("dropdownQueue") as any;
@@ -1228,6 +1364,9 @@ document
 
 // ─── Column visibility ────────────────────────────────────────────────────────
 
+// Column visibility is persisted in localStorage. On load, a <style> tag is injected with
+// display:none !important rules for hidden columns. The !important is required because the
+// gux-table component applies its own display styles via Shadow DOM slot distribution.
 const COL_VISIBILITY_KEY = "col_visibility";
 
 const TOGGLEABLE_COLUMNS = [
@@ -1243,8 +1382,8 @@ const TOGGLEABLE_COLUMNS = [
   { name: "queue", label: "Queue" },
   { name: "external-tag", label: "External Tag", defaultVisible: false },
   { name: "processing-state", label: "Processing State", defaultVisible: false },
+  { name: "time-in-status", label: "Time in Status", defaultVisible: false },
   { name: "remaining-sla", label: "Remaining SLA", defaultVisible: false },
-  { name: "parked-duration", label: "Parked Duration", defaultVisible: false },
   { name: "total-park-duration", label: "Total Park Duration", defaultVisible: false },
 ];
 
@@ -1380,7 +1519,7 @@ function wireSortableTableHandler() {
 
     const tableBody = table.querySelector("tbody")!;
 
-    if (columnName === "remaining-sla" || columnName === "parked-duration" || columnName === "total-park-duration") {
+    if (columnName === "time-in-status" || columnName === "remaining-sla" || columnName === "total-park-duration") {
       const colIdx = getColumnIndex(columnName);
       const sorted = [...tableBody.children].sort((a, b) => {
         const aVal = Number((a.querySelectorAll("td")[colIdx] as HTMLElement)?.dataset.sortValue ?? Number.MAX_SAFE_INTEGER);

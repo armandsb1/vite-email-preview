@@ -13,8 +13,8 @@
     "vite": "^6.1.0"
   },
   "dependencies": {
-    "genesys-spark": "^4.223.1",
+    "genesys-spark": "^4.225.0",
     "purecloud-client-app-sdk": "^2.6.7",
-    "purecloud-platform-client-v2": "248.0.0"
+    "purecloud-platform-client-v2": "249.1.0"
   }
 }

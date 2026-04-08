@@ -186,7 +186,7 @@ button:focus-visible {
   flex-direction: row;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 16px;
+  gap: 50px;
 }
 
 .chart-titled {
@@ -196,7 +196,7 @@ button:focus-visible {
 }
 
 .chart-title {
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--gse-ui-text-secondary, #555);
   text-align: center;
@@ -209,8 +209,8 @@ button:focus-visible {
 }
 
 #queue-hourly-chart {
-  width: 420px;
-  height: 230px;
+  width: 483px;
+  height: 265px;
 }
 
 #queue-status-chart {

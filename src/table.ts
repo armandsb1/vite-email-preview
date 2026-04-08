@@ -5,6 +5,7 @@ import { convertToDuration, formatShortDateTime, formatRemainingTime, getColumnI
 type PreviewFn = (id: string, participantId: string, status: string) => void;
 type ClaimFn = (id: string, participantId: string) => void;
 
+// Statuses that allow the email to be transferred to another queue or user
 const TRANSFERABLE_STATUSES = new Set(["in queue", "interacting", "on hold", "parked"]);
 
 export function addRow(
@@ -24,6 +25,7 @@ export function addRow(
   parkedSince: string,
   finishedParkDuration: number,
   hasNotes: boolean,
+  statusSince: string,
   onPreview: PreviewFn,
   onClaim: ClaimFn,
   participantId?: string,
@@ -32,6 +34,8 @@ export function addRow(
   if (!table) return;
 
   const row = document.createElement("tr");
+  // data-conversation-id is used by enrichEmailsInBackground to target this row for in-place cell updates
+  row.dataset.conversationId = id;
   row.id = id;
   row.setAttribute("data-row-id", id);
 
@@ -94,9 +98,24 @@ export function addRow(
     : `<gux-badge accent="${statusAccent[status] ?? "default"}">${status}</gux-badge>`;
   statusCell.innerHTML = statusBadge;
 
+  const timeInStatusCell = document.createElement("td");
+  timeInStatusCell.dataset.columnName = "time-in-status";
+  if (statusSince) {
+    // Compute elapsed time at render time from the stored ISO segmentStart.
+    // data-sort-value stores the raw milliseconds so the sort handler can compare numerically.
+    const ms = Date.now() - new Date(statusSince).getTime();
+    timeInStatusCell.textContent = formatRemainingTime(ms);
+    timeInStatusCell.dataset.sortValue = String(ms);
+  } else {
+    timeInStatusCell.dataset.sortValue = "0";
+  }
+
   const lastAgentCell = document.createElement("td");
   lastAgentCell.dataset.columnName = "last-agent";
   if (hasNotes) {
+    // gux-status-indicator-beta must be built via createElement + appendChild.
+    // Using innerHTML with custom elements causes the HTML parser to ignore unrecognised
+    // tag names, so the component never upgrades. Direct DOM construction bypasses the parser.
     const indicator = document.createElement("gux-status-indicator-beta");
     indicator.setAttribute("accent", "info");
     indicator.textContent = lastAgent;
@@ -139,18 +158,9 @@ export function addRow(
     remainingSlaCell.dataset.sortValue = String(Number.MAX_SAFE_INTEGER);
   }
 
-  const parkedDurationCell = document.createElement("td");
-  parkedDurationCell.dataset.columnName = "parked-duration";
-  if (parkedSince) {
-    const parkedMs = Date.now() - new Date(parkedSince).getTime();
-    parkedDurationCell.textContent = formatRemainingTime(parkedMs);
-    parkedDurationCell.dataset.sortValue = String(parkedMs);
-  } else {
-    parkedDurationCell.dataset.sortValue = "0";
-  }
-
   const totalParkDurationCell = document.createElement("td");
   totalParkDurationCell.dataset.columnName = "total-park-duration";
+  // Total park = elapsed time of the currently-open park (if any) + sum of all completed park intervals (tPark)
   const currentParkMs = parkedSince ? Date.now() - new Date(parkedSince).getTime() : 0;
   const totalParkMs = currentParkMs + finishedParkDuration;
   if (totalParkMs > 0) {
@@ -201,13 +211,13 @@ export function addRow(
     toCell,
     subjectCell,
     statusCell,
+    timeInStatusCell,
     lastAgentCell,
     firstQueueCell,
     queueCell,
     externalTagCell,
     processingStateCell,
     remainingSlaCell,
-    parkedDurationCell,
     totalParkDurationCell,
     participantCell,
     actionCell,
@@ -216,6 +226,8 @@ export function addRow(
   table.appendChild(row);
 }
 
+// Renders emailList rows in batches of 50 using requestAnimationFrame so the browser can
+// paint the first rows before processing the rest, keeping the UI responsive for large lists.
 export function populateTableData(
   emailList: EmailListElement[],
   onPreview: PreviewFn,
@@ -224,37 +236,53 @@ export function populateTableData(
   const table = document.getElementById("tbody");
   if (!table) return;
 
-  for (const email of emailList) {
-    addRow(
-      email.conversationId!,
-      email.firstMessage!,
-      email.lastMessage!,
-      email.from!,
-      email.to!,
-      email.subject!,
-      email.status!,
-      email.firstQueue!,
-      email.queue!,
-      email.lastAgent!,
-      email.externalTag!,
-      email.processingState!,
-      email.targetSla!,
-      email.parkedSince ?? "",
-      email.finishedParkDuration ?? 0,
-      email.hasNotes ?? false,
-      onPreview,
-      onClaim,
-      email.lastACDparticipant!,
-    );
-  }
+  const CHUNK = 50;
+  let index = 0;
 
-  document.getElementById("loading")!.style.display = "none";
+  return new Promise<void>((resolve) => {
+    function renderChunk() {
+      const end = Math.min(index + CHUNK, emailList.length);
+      for (let i = index; i < end; i++) {
+        const email = emailList[i];
+        addRow(
+          email.conversationId!,
+          email.firstMessage!,
+          email.lastMessage!,
+          email.from!,
+          email.to!,
+          email.subject!,
+          email.status!,
+          email.firstQueue!,
+          email.queue!,
+          email.lastAgent!,
+          email.externalTag!,
+          email.processingState!,
+          email.targetSla!,
+          email.parkedSince ?? "",
+          email.finishedParkDuration ?? 0,
+          email.hasNotes ?? false,
+          email.statusSince ?? "",
+          onPreview,
+          onClaim,
+          email.lastACDparticipant!,
+        );
+      }
+      index = end;
+      if (index < emailList.length) {
+        requestAnimationFrame(renderChunk);
+      } else {
+        document.getElementById("loading")!.style.display = "none";
+        resolve();
+      }
+    }
+    requestAnimationFrame(renderChunk);
+  });
 }
 
 export function filterTable(
   searchValue: string,
   status: string,
-  queue: string = "",
+  queues: string[] = [],
   state: string = "",
 ) {
   const rows = document.querySelectorAll("#tbody tr");
@@ -281,11 +309,10 @@ export function filterTable(
       match = false;
     }
 
-    if (queue && queueColumnIndex !== -1) {
-      if (
-        cells[queueColumnIndex]?.textContent?.toLowerCase() !==
-        queue.toLowerCase()
-      ) {
+    // Multi-queue filter uses OR logic: a row matches if its queue equals any of the selected queues
+    if (queues.length > 0 && queueColumnIndex !== -1) {
+      const cellQueue = cells[queueColumnIndex]?.textContent?.toLowerCase() ?? "";
+      if (!queues.some((q) => q.toLowerCase() === cellQueue)) {
         match = false;
       }
     }
@@ -302,13 +329,13 @@ export function filterTable(
     (row as HTMLElement).dataset.filterMatch = match ? "true" : "false";
   });
 
-  updateFilterInfo(searchValue, status, queue, state);
+  updateFilterInfo(searchValue, status, queues, state);
 }
 
 export function updateFilterInfo(
   searchValue: string,
   status: string,
-  queue: string,
+  queues: string[],
   state: string = "",
 ) {
   const bar = document.getElementById("filter-info-bar");
@@ -322,7 +349,7 @@ export function updateFilterInfo(
 
   bar.style.display = "block";
 
-  if (!searchValue && !status && !queue && !state) {
+  if (!searchValue && !status && queues.length === 0 && !state) {
     bar.textContent = `Showing ${total} emails`;
     return;
   }
@@ -330,7 +357,7 @@ export function updateFilterInfo(
   const parts: string[] = [];
   if (searchValue) parts.push(`Search: "${searchValue}"`);
   if (status) parts.push(`Status: ${status}`);
-  if (queue) parts.push(`Queue: ${queue}`);
+  if (queues.length > 0) parts.push(`Queue: ${queues.join(", ")}`);
   if (state) parts.push(`State: ${state}`);
 
   bar.textContent = `${parts.join(" · ")} · Showing ${visible} of ${total} emails`;
@@ -379,18 +406,25 @@ export function getSelectedRowIds(): string[] {
 export function getActiveFilterValues(): {
   search: string;
   status: string;
-  queue: string;
+  queues: string[];
   state: string;
 } {
+  const queueEl = document.getElementById("queue-filter-field") as any;
+  const rawQueue = queueEl?.value;
+  // gux-dropdown-multi stores its value as a comma-separated string, not an array.
+  // We normalise to string[] here so the rest of the code always works with an array.
+  const queues: string[] = Array.isArray(rawQueue)
+    ? rawQueue.filter(Boolean)
+    : typeof rawQueue === "string" && rawQueue
+      ? rawQueue.split(",").map((s) => s.trim()).filter(Boolean)
+      : [];
   return {
     search: (document.querySelector("[name=search-field]") as HTMLInputElement)
       .value,
     status: (
       document.querySelector("[name=status-field]") as HTMLSelectElement
     ).value,
-    queue: (
-      document.querySelector("[name=queue-filter-field]") as HTMLSelectElement
-    ).value,
+    queues,
     state: (
       document.querySelector("[name=state-filter-field]") as HTMLSelectElement | null
     )?.value ?? "",
@@ -415,14 +449,16 @@ export function applyPagination(page: number): number {
   });
 
   const paginationEl = document.getElementById("pagination-controls");
-  const pageInfo = document.getElementById("pagination-info");
+  const pageInput = document.getElementById("pagination-page-input") as HTMLInputElement | null;
+  const totalEl = document.getElementById("pagination-total");
   const firstBtn = document.getElementById("pagination-first");
   const prevBtn = document.getElementById("pagination-prev");
   const nextBtn = document.getElementById("pagination-next");
   const lastBtn = document.getElementById("pagination-last");
 
   if (paginationEl) paginationEl.style.display = totalPages > 1 ? "flex" : "none";
-  if (pageInfo) pageInfo.textContent = `Page ${clampedPage} of ${totalPages}`;
+  if (pageInput) { pageInput.value = String(clampedPage); pageInput.max = String(totalPages); }
+  if (totalEl) totalEl.textContent = String(totalPages);
 
   const atFirst = clampedPage <= 1;
   const atLast = clampedPage >= totalPages;
