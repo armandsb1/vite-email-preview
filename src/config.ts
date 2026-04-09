@@ -14,8 +14,8 @@ export function getSlaThresholdMs(): number {
 // The first window (0–7 days) is always loaded; subsequent windows are loaded on demand via
 // "Load older emails" or auto-expanded when a window returns fewer than AUTO_EXPAND_EMAIL_THRESHOLD results.
 export const ACTIVE_EMAIL_LOOKBACK_WINDOWS = [
-  { startDaysAgo: 7, endDaysAgo: 0 },
-  { startDaysAgo: 15, endDaysAgo: 7 },
+  { startDaysAgo: 5, endDaysAgo: 0 },
+  { startDaysAgo: 15, endDaysAgo: 5 },
   { startDaysAgo: 30, endDaysAgo: 15 },
   { startDaysAgo: 60, endDaysAgo: 30 },
   { startDaysAgo: 90, endDaysAgo: 60 },

@@ -330,11 +330,11 @@ async function fetchActiveEmailConversations(startWindowIndex = 0) {
 
       windowIndex++;
 
-      // Auto-expand: if the current window returned few emails (below AUTO_EXPAND_EMAIL_THRESHOLD)
-      // and we've consumed all loaded windows, automatically load one more window so the user sees
-      // enough data without having to click "Load older emails".
+      // Auto-expand: if the cumulative email count across all loaded windows is still below
+      // AUTO_EXPAND_EMAIL_THRESHOLD and we've consumed all loaded windows, extend by one more
+      // window. Once the running total exceeds the threshold we stop, so we never over-fetch.
       if (
-        (firstPage.totalHits ?? 0) <= AUTO_EXPAND_EMAIL_THRESHOLD &&
+        (data.conversations?.length ?? 0) < AUTO_EXPAND_EMAIL_THRESHOLD &&
         windowIndex === loadedWindows &&
         windowIndex < ACTIVE_EMAIL_LOOKBACK_WINDOWS.length
       ) {
