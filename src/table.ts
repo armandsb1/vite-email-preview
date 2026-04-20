@@ -39,8 +39,8 @@ export function addRow(
   row.id = id;
   row.setAttribute("data-row-id", id);
 
-  const isSelectable = ["In Queue", "Alerting", "Parked", "Interacting", "On Hold"].includes(status);
-  const isClaimDisabled = status === "Interacting" || status === "On Hold";
+  const isSelectable = ["In Queue", "Alerting", "Parked"].includes(status);
+  const isClaimDisabled = status === "Interacting" || status === "Composing" || status === "On Hold";
 
   // Row select cell
   const selectCell = document.createElement("td");
@@ -87,6 +87,7 @@ export function addRow(
 
   const statusAccent: Record<string, string> = {
     "Interacting": "success",
+    "Composing": "success",
     "In Queue": "info",
     "Parked": "warning",
     "Alerting": "warning",

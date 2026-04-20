@@ -114,14 +114,19 @@ export function extractEmailData(
 
     const isQueueStatus = status === "In Queue" || status === "Alerting";
 
+    // Emails being composed by an agent have no ACD queue participant yet.
+    // Distinguish them from actively-handled emails by using "Composing" status.
+    const queueName = findInteractParticipant(queueParticipants as any, "name", "latest") ?? "";
+    const derivedStatus = status === "Interacting" && !queueName ? "Composing" : status;
+
     return {
       conversationId: email.conversationId,
       from: customerParticipant?.sessions?.[0]?.addressFrom,
       to: customerParticipant?.sessions?.[0]?.addressTo,
       subject,
-      status,
+      status: derivedStatus,
       // "queue" = the queue the email is currently sitting in (latest ACD interact)
-      queue: findInteractParticipant(queueParticipants as any, "name", "latest") ?? "",
+      queue: queueName,
       // "firstQueue" = the queue the email originally entered (earliest ACD interact)
       firstQueue: findInteractParticipant(queueParticipants as any, "name", "first") ?? "",
       // nConnected emitDate is the timestamp Genesys records for when the customer connected
