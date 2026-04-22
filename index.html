@@ -40,8 +40,22 @@
           <gux-tab tab-id="8-2"> History search </gux-tab>
         </gux-tab-list>
         <gux-tab-panel tab-id="8-1">
+          <!-- Left flyout panel -->
+          <div id="left-panel" class="left-panel">
+            <div class="left-panel-header">
+              <button id="left-panel-close" class="left-panel-close-btn">
+                <gux-icon size="medium" icon-name="close" decorative="true"></gux-icon>
+              </button>
+            </div>
+            <div class="left-panel-content">
+            </div>
+          </div>
+
           <div class="table-toolbar">
             <div class="toolbar-left">
+              <button id="left-panel-open" class="icon-btn">
+                <gux-icon size="medium" icon-name="menu" decorative="true"></gux-icon>
+              </button>
               <div class="search-form">
                 <gux-form-field-search
                   label-position="screenreader"
@@ -79,7 +93,7 @@
                 </gux-dropdown>
                 <gux-dropdown-multi
                   id="queue-filter-field"
-                  style="width: 220px"
+                  style="width: 250px"
                   filter-type="starts-with"
                   placeholder="Filter by queue"
                 >

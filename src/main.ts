@@ -17,6 +17,7 @@ import {
   EMAIL_STATUS_ATTRIBUTE_NAME,
   EMAIL_TARGET_SLA_ATTRIBUTE_NAME,
   EMAIL_FILTER_CHECKBOX_ORGS,
+  getSlaThresholdMs,
 } from "./config";
 import {
   delay,
@@ -25,6 +26,8 @@ import {
   formatDateRange,
   getColumnIndex,
   formatRemainingTime,
+  getStarredQueues,
+  setStarredQueue,
 } from "./utils";
 import {
   extractEmailData,
@@ -78,6 +81,8 @@ let tablePage = 1;
 let emailsList: EmailListElement[] = [];
 let processingStatusOptions: { key: string; title: string }[] = []; // dropdown options from the custom attribute schema
 let processingStatusSchemaId: string = "";           // schema ID required for PUT /customattributes; empty = feature disabled
+// Controls additional row filtering applied after filterTable(); "" means no inbox filter active
+let inboxFilter: "" | "unassigned" | "mine" | "waiting-4h" | "waiting-1d" | "over-sla" = "";
 
 // ─── Spark web components ─────────────────────────────────────────────────────
 
@@ -139,6 +144,7 @@ async function getActiveEmails() {
     if (!conversations) return;
     if (customAttributesList) processingStatusOptions = customAttributesList;
 
+    const seen = new Set<string>();
     emailsList = [
       ...extractEmailData(
         getEmailsByStatus(conversations, "acd", "interact"),
@@ -160,7 +166,11 @@ async function getActiveEmails() {
         getEmailsByStatus(conversations, "agent", "hold", "user"),
         "On Hold",
       ),
-    ].sort(
+    ].filter((e) => {
+      if (seen.has(e.conversationId!)) return false;
+      seen.add(e.conversationId!);
+      return true;
+    }).sort(
       (a, b) =>
         new Date(b.lastMessage!).getTime() - new Date(a.lastMessage!).getTime(),
     );
@@ -170,11 +180,14 @@ async function getActiveEmails() {
     await populateTableData(emailsList, previewEmail, claimEmail);
     queueCounts = populateQueueStats(emailsList, todayOffered, handleQueueStatClick);
     refreshQueueFilterLabels(queueCounts);
+    renderFavoriteQueues();
     renderHourlyBarChart(hourlyData);
     renderStatusStackedBarChart(emailsList);
 
+    inboxFilter = "";
     const { search, status, queues, state } = getActiveFilterValues();
     filterTable(search, status, queues, state);
+    applyInboxFilter();
     tablePage = 1;
     applyPagination(tablePage);
     updateLoadOlderButton();
@@ -211,6 +224,7 @@ async function appendOlderEmails() {
 
     const { search, status, queues, state } = getActiveFilterValues();
     filterTable(search, status, queues, state);
+    applyInboxFilter();
     tablePage = 1;
     applyPagination(tablePage);
     updateLoadOlderButton();
@@ -762,7 +776,7 @@ function populateStateFilterDropdown() {
 // Populates the queue filter multi-select dropdown options.
 // When the segment-filter checkbox is ON, shows every known queue (from queueNameById) so the user
 // can filter before fetching data. When OFF, shows only queues that actually have active emails.
-// Preserves the current selection after repopulation by re-applying the comma-separated value.
+// Starred queues (saved in localStorage) are sorted to the top. Preserves the current selection.
 function populateQueueFilterDropdown(emails: { queue?: string }[]) {
   const filterList = document.getElementById("queue-filter-value")!;
   const queueDropdown = document.getElementById("queue-filter-field") as any;
@@ -773,15 +787,64 @@ function populateQueueFilterDropdown(emails: { queue?: string }[]) {
       ? currentRaw.split(",").map((s) => s.trim()).filter(Boolean)
       : [];
   const segmentFilterEnabled = (document.getElementById("queue-segment-filter") as HTMLInputElement)?.checked;
-  const unique = segmentFilterEnabled
-    ? Object.values(queueNameById).sort()
-    : [...new Set(emails.map((e) => e.queue ?? "").filter(Boolean))].sort();
+  const starred = getStarredQueues();
+
+  const unique = (segmentFilterEnabled
+    ? Object.values(queueNameById)
+    : [...new Set(emails.map((e) => e.queue ?? "").filter(Boolean))]
+  ).sort((a, b) => {
+    // Starred queues always appear first, then alphabetical within each group
+    const diff = (starred.has(b) ? 1 : 0) - (starred.has(a) ? 1 : 0);
+    return diff !== 0 ? diff : a.localeCompare(b);
+  });
 
   filterList.innerHTML = "";
   for (const name of unique) {
     const opt = document.createElement("gux-option-multi");
     opt.setAttribute("value", name);
-    opt.textContent = name;
+
+    const wrapper = document.createElement("span");
+    wrapper.style.cssText = "display:flex;align-items:center;gap:6px;width:100%";
+
+    // gux-rating with max-value="1" renders as a single star toggle.
+    // pointer-events:none on the rating prevents it from receiving clicks directly —
+    // an overlay span intercepts all pointer events instead, toggles the value manually,
+    // and stops propagation so gux-option-multi never sees the click (no filter change).
+    const ratingContainer = document.createElement("span");
+    ratingContainer.style.cssText = "position:relative;display:inline-flex;align-items:center;";
+
+    const rating = document.createElement("gux-rating") as any;
+    rating.setAttribute("aria-label", `Star ${name}`);
+    rating.setAttribute("max-value", "1");
+    rating.style.pointerEvents = "none";
+    if (starred.has(name)) rating.setAttribute("value", "1");
+
+    const starOverlay = document.createElement("span");
+    starOverlay.style.cssText = "position:absolute;inset:0;cursor:pointer;z-index:1;";
+    ["click", "mousedown", "pointerdown"].forEach((evt) => {
+      starOverlay.addEventListener(evt, (e: Event) => {
+        e.stopPropagation();
+        e.preventDefault();
+      });
+    });
+    starOverlay.addEventListener("click", () => {
+      const nowStarred = !starred.has(name);
+      setStarredQueue(name, nowStarred);
+      nowStarred ? starred.add(name) : starred.delete(name);
+      rating.setAttribute("value", nowStarred ? "1" : "0");
+      (rating as any).value = nowStarred ? 1 : 0;
+      if (leftPanel?.classList.contains("open")) renderFavoriteQueues();
+    });
+
+    ratingContainer.appendChild(rating);
+    ratingContainer.appendChild(starOverlay);
+
+    const nameSpan = document.createElement("span");
+    nameSpan.textContent = name;
+
+    wrapper.appendChild(ratingContainer);
+    wrapper.appendChild(nameSpan);
+    opt.appendChild(wrapper);
     filterList.appendChild(opt);
   }
 
@@ -1085,12 +1148,171 @@ function handleQueueStatClick(queueName: string) {
 
   const { search, status, state } = getActiveFilterValues();
   filterTable(search, status, [queueName], state);
+  applyInboxFilter();
   tablePage = 1;
   applyPagination(tablePage);
   refreshQueueFilterLabels(queueCounts);
 }
 
+// Matches rows against inboxFilter after filterTable() has set data-filter-match.
+// Uses emailsList data (by conversationId) rather than parsing the agent cell DOM.
+function applyInboxFilter() {
+  if (!inboxFilter) return;
+  document.querySelectorAll<HTMLElement>("#tbody tr").forEach((row) => {
+    if (row.dataset.filterMatch === "false") return;
+    const email = emailsList.find((e) => e.conversationId === row.dataset.conversationId);
+    if (!email) return;
+    if (inboxFilter === "unassigned" && email.lastAgent) {
+      row.dataset.filterMatch = "false";
+    } else if (inboxFilter === "mine" && email.lastAgent !== (user?.name ?? "")) {
+      row.dataset.filterMatch = "false";
+    } else if (inboxFilter === "waiting-4h") {
+      const processingMs = email.lastMessage ? Date.now() - new Date(email.lastMessage).getTime() : 0;
+      if (processingMs <= 4 * 60 * 60 * 1000) row.dataset.filterMatch = "false";
+    } else if (inboxFilter === "waiting-1d") {
+      const processingMs = email.lastMessage ? Date.now() - new Date(email.lastMessage).getTime() : 0;
+      if (processingMs <= 24 * 60 * 60 * 1000) row.dataset.filterMatch = "false";
+    } else if (inboxFilter === "over-sla") {
+      const processingMs = email.lastMessage ? Date.now() - new Date(email.lastMessage).getTime() : 0;
+      if (processingMs <= getSlaThresholdMs()) row.dataset.filterMatch = "false";
+    }
+  });
+}
+
+// Builds a left-panel row with a label on the left and a notification indicator on the right.
+function createPanelCountItem(label: string, count: number, onClick: () => void): HTMLElement {
+  const item = document.createElement("div");
+  item.className = "left-panel-queue-item";
+
+  const nameSpan = document.createElement("span");
+  nameSpan.textContent = label;
+
+  const indicator = document.createElement("span");
+  indicator.textContent = count > 999 ? "999+" : String(count);
+  indicator.style.cssText =
+    "min-width:20px;height:20px;padding:0 5px;border-radius:10px;" +
+    "background:var(--gse-ui-color-badge-background,#e8e8e8);" +
+    "color:var(--gse-ui-color-badge-foreground,#444);" +
+    "font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;";
+
+  item.appendChild(nameSpan);
+  item.appendChild(indicator);
+  item.addEventListener("click", onClick);
+  return item;
+}
+
+function renderFavoriteQueues() {
+  const content = document.querySelector(".left-panel-content")!;
+  content.innerHTML = "";
+
+  // ── Inbox section ──────────────────────────────────────────────────────────
+  const inboxSection = document.createElement("div");
+  inboxSection.className = "left-panel-section";
+
+  const inboxTitle = document.createElement("h4");
+  inboxTitle.className = "left-panel-section-title";
+  inboxTitle.textContent = "Inbox";
+  inboxSection.appendChild(inboxTitle);
+
+  const allCount = emailsList.length;
+  const unassignedCount = emailsList.filter((e) => !e.lastAgent).length;
+  const userName = user?.name ?? "";
+  const mineCount = userName ? emailsList.filter((e) => e.lastAgent === userName).length : 0;
+  const now = Date.now();
+  const waiting4hCount = emailsList.filter(
+    (e) => e.lastMessage ? now - new Date(e.lastMessage).getTime() > 4 * 60 * 60 * 1000 : false
+  ).length;
+  const waiting1dCount = emailsList.filter(
+    (e) => e.lastMessage ? now - new Date(e.lastMessage).getTime() > 24 * 60 * 60 * 1000 : false
+  ).length;
+  const slaMs = getSlaThresholdMs();
+  const overSlaCount = emailsList.filter(
+    (e) => e.lastMessage ? now - new Date(e.lastMessage).getTime() > slaMs : false
+  ).length;
+
+  const makeInboxItem = (label: string, count: number, filter: typeof inboxFilter) =>
+    createPanelCountItem(label, count, () => {
+      // Clear all active filters so the inbox selection is the only constraint
+      (document.querySelector("[name=search-field]") as HTMLInputElement).value = "";
+      (document.getElementById("search-field") as any).guxForceUpdate?.();
+      (document.querySelector("[name=status-field]") as HTMLSelectElement).value = "";
+      (document.getElementById("queue-filter-field") as any).value = "";
+      (document.getElementById("state-filter-field") as any).value = "";
+
+      inboxFilter = filter;
+      filterTable("", "", [], "");
+      applyInboxFilter();
+      tablePage = 1;
+      applyPagination(tablePage);
+      closeLeftPanel();
+    });
+
+  inboxSection.appendChild(makeInboxItem("All emails", allCount, ""));
+  inboxSection.appendChild(makeInboxItem("Unassigned", unassignedCount, "unassigned"));
+  inboxSection.appendChild(makeInboxItem("Assigned to me", mineCount, "mine"));
+  inboxSection.appendChild(makeInboxItem("Waiting more than 4h", waiting4hCount, "waiting-4h"));
+  inboxSection.appendChild(makeInboxItem("Waiting more than 1d", waiting1dCount, "waiting-1d"));
+  inboxSection.appendChild(makeInboxItem("Over SLA", overSlaCount, "over-sla"));
+  content.appendChild(inboxSection);
+
+  // ── Favorite queues section ────────────────────────────────────────────────
+  const section = document.createElement("div");
+  section.className = "left-panel-section";
+
+  const title = document.createElement("h4");
+  title.className = "left-panel-section-title";
+  title.textContent = "Favorite queues";
+  section.appendChild(title);
+
+  const starred = getStarredQueues();
+
+  if (starred.size === 0) {
+    const empty = document.createElement("p");
+    empty.className = "left-panel-empty";
+    empty.textContent = "No favorite queues yet. Star a queue in the filter dropdown.";
+    section.appendChild(empty);
+    content.appendChild(section);
+    return;
+  }
+
+  // Count all emails per queue regardless of status
+  const emailCountByQueue: Record<string, number> = {};
+  for (const email of emailsList) {
+    if (email.queue) {
+      emailCountByQueue[email.queue] = (emailCountByQueue[email.queue] || 0) + 1;
+    }
+  }
+
+  for (const queueName of [...starred].sort()) {
+    section.appendChild(
+      createPanelCountItem(queueName, emailCountByQueue[queueName] ?? 0, () => {
+        handleQueueStatClick(queueName);
+        closeLeftPanel();
+      })
+    );
+  }
+
+  content.appendChild(section);
+}
+
 // ─── Event listeners ──────────────────────────────────────────────────────────
+
+// Left flyout panel — slides in and pushes the main view to the right
+const leftPanel = document.getElementById("left-panel")!;
+const mainView = document.getElementById("originalView")!;
+
+function openLeftPanel() {
+  renderFavoriteQueues();
+  leftPanel.classList.add("open");
+  mainView.classList.add("panel-open");
+}
+function closeLeftPanel() {
+  leftPanel.classList.remove("open");
+  mainView.classList.remove("panel-open");
+}
+
+document.getElementById("left-panel-open")!.addEventListener("click", openLeftPanel);
+document.getElementById("left-panel-close")!.addEventListener("click", closeLeftPanel);
 
 // Search field: trigger on Enter key
 document.getElementById("search-value")!.addEventListener("keydown", (e) => {
@@ -1098,6 +1320,7 @@ document.getElementById("search-value")!.addEventListener("keydown", (e) => {
   e.preventDefault();
   const { search, status, queues, state } = getActiveFilterValues();
   filterTable(search, status, queues, state);
+  applyInboxFilter();
   tablePage = 1;
   applyPagination(tablePage);
   const searchInput = document.querySelector(
@@ -1111,6 +1334,7 @@ document.getElementById("search-value")!.addEventListener("keydown", (e) => {
 document.getElementById("status-value")!.addEventListener("change", () => {
   const { search, status, queues, state } = getActiveFilterValues();
   filterTable(search, status, queues, state);
+  applyInboxFilter();
   tablePage = 1;
   applyPagination(tablePage);
 });
@@ -1121,6 +1345,7 @@ document
   .addEventListener("change", () => {
     const { search, status, queues, state } = getActiveFilterValues();
     filterTable(search, status, queues, state);
+    applyInboxFilter();
     tablePage = 1;
     applyPagination(tablePage);
     refreshQueueFilterLabels(queueCounts);
@@ -1132,6 +1357,7 @@ document
   .addEventListener("change", function () {
     const { search, status, queues } = getActiveFilterValues();
     filterTable(search, status, queues, (this as HTMLSelectElement).value);
+    applyInboxFilter();
     tablePage = 1;
     applyPagination(tablePage);
   });

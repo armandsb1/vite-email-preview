@@ -66,9 +66,9 @@ export function populateQueueStats(
   return counts;
 }
 
-// Updates each queue filter option to show the active email count next to the queue name.
-// The count is only appended for un-selected options; selected ones show the bare name to
-// keep the dropdown chips compact and avoid double-rendering the number.
+// Updates the active email count badge on each queue filter option without touching the
+// star rating element (which has wired event handlers from populateQueueFilterDropdown).
+// A data-queue-count span is added/updated/removed in place.
 export function refreshQueueFilterLabels(queueCounts: Record<string, number>) {
   const filterList = document.getElementById("queue-filter-value");
   if (!filterList) return;
@@ -77,15 +77,26 @@ export function refreshQueueFilterLabels(queueCounts: Record<string, number>) {
     const raw = (document.getElementById("queue-filter-field") as any)?.value;
     return Array.isArray(raw) ? raw : raw ? [raw] : [];
   })();
+
   filterList.querySelectorAll("gux-option-multi").forEach((option) => {
     const queueName = option.getAttribute("value")!;
     if (!queueName) return;
     const count = queueCounts[queueName] || 0;
     const isSelected = selectedValues.includes(queueName);
-    (option as HTMLElement).innerHTML =
-      !isSelected && count > 0
-        ? `<span style="display:flex;justify-content:space-between;width:100%"><span>${queueName}</span><span>${count}</span></span>`
-        : queueName;
+    const wrapper = option.querySelector("span");
+
+    let countSpan = option.querySelector<HTMLElement>("[data-queue-count]");
+
+    if (!isSelected && count > 0) {
+      if (!countSpan) {
+        countSpan = document.createElement("span");
+        countSpan.setAttribute("data-queue-count", "");
+        wrapper?.appendChild(countSpan);
+      }
+      countSpan.textContent = String(count);
+    } else {
+      countSpan?.remove();
+    }
   });
 }
 

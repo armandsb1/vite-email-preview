@@ -64,6 +64,22 @@ export function formatRemainingTime(ms: number): string {
   return parts.length ? parts.join(" ") : "0m";
 }
 
+const STARRED_QUEUES_KEY = "starred_queues";
+
+export function getStarredQueues(): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(STARRED_QUEUES_KEY) ?? "[]"));
+  } catch {
+    return new Set();
+  }
+}
+
+export function setStarredQueue(name: string, starred: boolean): void {
+  const set = getStarredQueues();
+  if (starred) set.add(name); else set.delete(name);
+  localStorage.setItem(STARRED_QUEUES_KEY, JSON.stringify([...set]));
+}
+
 export function formatDateRange(monthsBack: number): string {
   const today = new Date();
   const from = new Date();
